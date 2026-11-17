@@ -1,0 +1,22 @@
+{
+  "name": "multicloud-design",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "멀티클라우드 플랫폼을 단계별 애니메이션 다이어그램으로 배우는 인터랙티브 코스",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node tools/check.mjs",
+    "sheet": "node tools/sheet.mjs"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/nanum-gothic-coding": "^5.3.0",
+    "lucide": "^1.74.0"
+  }
+}
