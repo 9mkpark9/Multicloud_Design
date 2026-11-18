@@ -44,7 +44,7 @@ $ aws s3 ls --endpoint-url \\
 # NCLOUD_ACCESS_KEY, NCLOUD_SECRET_KEY
 provider "ncloud" {
   region      = "KR"
-  site        = "public"  # gov · fin
+  site        = "gov"  # 민간은 "public"
   support_vpc = true
 }
 
@@ -65,7 +65,7 @@ resource "ncloud_vpc" "shop" {
     },
     nodes: {
       // 문제 · 리전
-      gov: { kind: 'users', at: [0, 2.6], label: '공공기관 고객' },
+      gov: { kind: 'users', at: [0.6, 2.4], label: '공공기관 고객' },
       rfp: { kind: 'tile', at: [2.8, 0.2], label: '제안요청서', icon: 'clipboard-list', color: 'sand' },
       srv1: { at: [4.5, -0.9], label: 'Server', sub: '주문 API', icon: 'server', color: 'ncp' },
       srv2: { at: [7.5, -0.9], label: 'Server', sub: '주문 API', icon: 'server', color: 'ncp' },
@@ -74,7 +74,7 @@ resource "ncloud_vpc" "shop" {
       s_gov: { at: [4.6, -0.6], label: '공공기관용', sub: '별도 사이트', icon: 'building', color: 'navy' },
       s_fin: { at: [6.6, -2.6], label: '금융', sub: '별도 사이트', icon: 'bank', color: 'yellow' },
       // VPC
-      user: { kind: 'client', at: [0.2, 3.2], label: '사용자' },
+      user: { kind: 'client', at: [1.0, 2.8], label: '사용자' },
       web: { at: [4.1, -0.7], label: '웹 서버', sub: '공인 IP', icon: 'server', color: 'ncp' },
       db: { kind: 'cyl', at: [7.1, -0.7], label: 'DB 서버', icon: 'database', color: 'purple' },
       // 서비스 지도
@@ -88,17 +88,17 @@ resource "ncloud_vpc" "shop" {
       n_ci: { at: [2.6, -7.8], label: 'Cloud\nInsight', sub: '지표 · 알람', icon: 'activity', color: 'yellow' },
       // Sub Account
       dev: { kind: 'client', at: [0, 2.6], label: '개발자 (서브 계정)' },
-      sa: { at: [2.6, 0.4], label: 'Sub Account', sub: '정책 확인', icon: 'user-cog', color: 'ncp' },
-      res: { at: [5.0, -1.6], label: 'Server · NKS', sub: '허용된 것만', icon: 'server', color: 'ncp' },
-      main: { at: [3.0, 3.4], label: '메인 계정', sub: '모든 권한', icon: 'key', color: 'red' },
+      sa: { at: [2.6, 0.4], label: 'Sub\nAccount', sub: '정책 확인', icon: 'user-cog', color: 'ncp' },
+      res: { at: [5.0, -1.6], label: '리소스', sub: 'Server · NKS', icon: 'server', color: 'ncp' },
+      main: { at: [2.6, -2.2], label: '메인 계정', sub: '모든 권한', icon: 'key', color: 'red' },
       // Classic 함정
       classic: { at: [5.0, -1.6], label: 'Server', sub: 'Classic', icon: 'server', color: 'gray' },
       vsrv: { at: [5.6, 1.4], label: 'Server', sub: 'VPC', icon: 'server', color: 'ncp' },
       // CLI · Terraform
-      term: { kind: 'client', at: [0, 2.6], label: '터미널 (ncloud)' },
-      api: { at: [2.6, 0.4], label: 'NCP API', sub: '서명 확인', icon: 'plug', color: 'ncp' },
-      tf: { kind: 'tile', at: [0, 2.6], label: 'main.tf', icon: 'file-code', color: 'olive' },
-      nvpc: { at: [5.0, -1.6], label: 'VPC', sub: 'shop-vpc', icon: 'network', color: 'purple' },
+      term: { kind: 'client', at: [0.2, 2.6], label: '터미널 (ncloud)' },
+      api: { at: [2.0, 0.8], label: 'NCP API', sub: '서명 확인', icon: 'plug', color: 'ncp' },
+      tf: { kind: 'tile', at: [0.2, 2.6], label: 'main.tf', icon: 'file-code', color: 'olive' },
+      nvpc: { at: [3.8, -1.0], label: 'VPC', sub: 'shop-vpc', icon: 'network', color: 'purple' },
     },
     edges: {
       e_g1: { from: 'gov', to: 'srv1' },
@@ -132,13 +132,13 @@ resource "ncloud_vpc" "shop" {
     {
       key: '리전 · 존', kind: 'concept', title: 'KR 리전과 두 개의 존',
       body: [
-        'NCP의 국내 리전 코드는 <code>KR</code>이고, 그 안에 물리적으로 떨어진 <b>존</b> <code>KR-1</code>과 <code>KR-2</code>가 있습니다. AWS의 AZ와 같은 자리예요. 미국·싱가포르·일본·독일 등 해외 리전도 있지만 쓸 수 있는 서비스는 리전마다 다릅니다.',
+        'NCP의 국내 리전 코드는 <code>KR</code>이고, 그 안에 물리적으로 떨어진 <b>존</b> <code>KR-1</code>과 <code>KR-2</code>가 있습니다. AWS의 AZ와 같은 자리예요. 싱가포르·일본 등 해외 리전도 있지만 쓸 수 있는 서비스는 리전마다 다릅니다.',
         '고가용성의 기본은 같습니다. 서버를 두 존에 나눠 두고 로드 밸런서로 묶으면, 존 하나가 멈춰도 서비스가 이어집니다.',
       ],
       callout: { type: 'cloud', text: '같은 서울이라도 이름 짓는 방식이 다릅니다. AWS <code>ap-northeast-2a</code>, GCP <code>asia-northeast3-a</code>, NCP <code>KR-1</code>.' },
       hide: ['rfp'],
       show: ['kr', 'kr1', 'kr2', 'srv1', 'srv2'],
-      tags: [{ on: 'srv2', text: '존이 달라 함께 안 멈춤', tone: 'ok', pos: 'right' }],
+      tags: [{ on: 'srv2', text: '존이 달라 함께 안 멈춤', tone: 'ok' }],
       flows: [{ path: ['gov', 'srv1'], kind: 'req', n: 2 }, { path: ['gov', 'srv2'], kind: 'req', n: 2, delay: 0.4 }],
       metrics: { zone: ['KR-1 + KR-2', 'ok'] },
     },
@@ -191,7 +191,7 @@ resource "ncloud_vpc" "shop" {
       show: ['dev', 'sa', 'res', 'main'],
       set: { main: { state: 'dim' } },
       focus: ['sa'],
-      tags: [{ on: 'main', text: '잠가 두기 · MFA', icon: 'lock', pos: 'right' }, { on: 'res', text: '정책에 있는 것만', tone: 'ok', pos: 'right' }],
+      tags: [{ on: 'main', text: '잠가 두기 · MFA', icon: 'lock' }, { on: 'res', text: '정책에 있는 것만', tone: 'ok', pos: 'right' }],
       flows: [{ path: ['dev', 'sa', 'res'], kind: 'ctrl', n: 2 }],
       metrics: { key: ['서브 계정 키', 'ok'] },
       changes: [['+', '서브 계정 + 그룹 + 정책'], ['-', '메인 계정 키 사용'], ['~', '콘솔 · API 접근을 계정마다']],
@@ -227,13 +227,13 @@ resource "ncloud_vpc" "shop" {
       key: 'Terraform', kind: 'concept', title: 'Terraform: ncloud 프로바이더',
       body: [
         'NCP에는 CloudFormation 같은 자체 IaC 도구 대신, 공식 Terraform 프로바이더 <code>NaverCloudPlatform/ncloud</code>가 있습니다. 다른 클라우드와 같은 Terraform 문법과 워크플로를 그대로 씁니다.',
-        '프로바이더에는 리전(<code>KR</code>)과 사이트(민간·공공·금융)를 지정하고, 키는 코드가 아니라 환경 변수로 넘깁니다. 리소스 이름은 <code>ncloud_vpc</code>, <code>ncloud_subnet</code>처럼 <code>ncloud_</code>로 시작합니다.',
+        '프로바이더에는 리전(<code>KR</code>)과 사이트(<code>public</code> · <code>gov</code> · <code>fin</code>)를 지정하고, 키는 코드가 아니라 환경 변수로 넘깁니다. 리소스 이름은 <code>ncloud_vpc</code>, <code>ncloud_subnet</code>처럼 <code>ncloud_</code>로 시작합니다.',
       ],
       hide: ['term'],
       show: ['tf', 'nvpc'],
       flows: [{ path: ['tf', 'api', 'nvpc'], kind: 'ctrl', n: 2 }],
       code: { ref: 'tf', hl: [4, 9, 10, 12, 13, 14] },
-      metrics: { site: ['site = "public"', 'ok'] },
+      metrics: { site: ['site = "gov"', 'ok'] },
     },
     {
       key: '정리', kind: 'recap', title: '정리: 국내 · 규제 · 익숙한 구조',
