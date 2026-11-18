@@ -56,7 +56,7 @@ export default {
       e_tp: { from: 't1', to: 'reg' },
       e_pull: { from: 'reg', to: 'srv' },
       e_view: { from: 't1', to: 'view' },
-      e_share: { from: 't1', to: 'u1', bi: true, style: 'dashed', tone: 'ok', label: '같은 층 · 1벌만 저장' },
+      e_share: { from: 't1', to: 'u1', bi: true, style: 'dashed', tone: 'ok', label: '공유' },
       e_t14: { from: 'tg14', to: 'imgA' },
       e_la: { from: 'tgl', to: 'imgA' },
       e_lb: { from: 'tgl', to: 'imgB', off: true },
@@ -235,7 +235,7 @@ export default {
       ],
       set: { w1: { state: null } },
       tags: [
-        { on: 'w1', text: '쓰기 레이어: 지우면 사라짐', tone: 'warn', pos: 'right' },
+        { on: 'w1', text: '쓰기 레이어: 지우면 끝', tone: 'warn', pos: 'right' },
         { on: 't3', text: '읽기 전용 · 공유 · 캐시', tone: 'ok', pos: 'right' },
       ],
       metrics: { data: '볼륨으로 (4강)' },

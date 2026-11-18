@@ -28,7 +28,7 @@ export default {
       dev: { kind: 'client', at: [-2.8, 0.4], label: '나 (콘솔)' },
       fn: { at: [0.9, 2.3], label: 'Lambda', sub: '주문 함수', icon: 'zap', color: 'aws' },
       tbl: { kind: 'cyl', at: [2.4, 1.1], label: 'DynamoDB', icon: 'table', color: 'purple' },
-      none: { kind: 'tile', at: [1.6, -1.8], label: '리소스 0개', icon: 'search', color: 'gray' },
+      none: { kind: 'tile', at: [2.1, -1.3], label: '리소스 0개', icon: 'search', color: 'gray' },
       // Organizations
       org: { at: [0, 0], label: '관리 계정', sub: 'Organizations', icon: 'building', color: 'aws' },
       ou_wl: { at: [3.2, 1.6], label: 'OU', sub: '워크로드', icon: 'folder', color: 'sand' },
@@ -36,7 +36,7 @@ export default {
       a_prod: { at: [6.4, 3.2], label: '운영 계정', sub: 'prod', icon: 'id-card', color: 'red' },
       a_dev: { at: [6.4, 0], label: '개발 계정', sub: 'dev', icon: 'id-card', color: 'green' },
       a_log: { at: [6.4, -3.2], label: '로그 계정', sub: 'log-archive', icon: 'id-card', color: 'slate' },
-      me: { kind: 'client', at: [2, 1.8], label: '터미널' },
+      me: { kind: 'client', at: [1.6, 1.8], label: '터미널' },
       // VPC 범위
       pub_a: { at: [1.5, 0.95], size: 's', label: '퍼블릭', sub: '10.0.1.0/24', color: 'green' },
       pri_a: { at: [3.7, 0.95], size: 's', label: '프라이빗', sub: '10.0.11.0/24', color: 'purple' },
