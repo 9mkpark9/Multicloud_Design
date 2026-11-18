@@ -66,7 +66,7 @@ resource "ncloud_vpc" "shop" {
     nodes: {
       // 문제 · 리전
       gov: { kind: 'users', at: [0.9, 1.9], label: '공공기관 고객' },
-      rfp: { kind: 'tile', at: [2.8, 0.2], label: '제안요청서', icon: 'clipboard-list', color: 'sand' },
+      rfp: { kind: 'tile', at: [3.3, -0.3], label: '제안요청서', icon: 'clipboard-list', color: 'sand' },
       srv1: { at: [5.0, -2.1], label: 'Server', sub: '주문 API', icon: 'server', color: 'ncp' },
       srv2: { at: [5.0, 0.7], label: 'Server', sub: '주문 API', icon: 'server', color: 'ncp' },
       // 사이트
@@ -90,15 +90,15 @@ resource "ncloud_vpc" "shop" {
       dev: { kind: 'client', at: [0, 2.6], label: '개발자 (서브 계정)' },
       sa: { at: [2.6, 0.4], label: 'Sub\nAccount', sub: '정책 확인', icon: 'user-cog', color: 'ncp' },
       res: { at: [5.0, -1.6], label: '리소스', sub: 'Server · NKS', icon: 'server', color: 'ncp' },
-      main: { at: [2.6, -2.8], label: '메인 계정', sub: '모든 권한', icon: 'key', color: 'red' },
+      main: { at: [2.6, -3.3], label: '메인 계정', sub: '모든 권한', icon: 'key', color: 'red' },
       // Classic 함정
       classic: { at: [5.0, -1.6], label: 'Server', sub: 'Classic', icon: 'server', color: 'gray' },
       vsrv: { at: [5.6, 1.4], label: 'Server', sub: 'VPC', icon: 'server', color: 'ncp' },
       // CLI · Terraform
-      term: { kind: 'client', at: [0.2, 2.6], label: '터미널 (ncloud)' },
+      term: { kind: 'client', at: [-0.4, 3.2], label: '터미널 (ncloud)' },
       api: { at: [2.0, 0.8], label: 'NCP API', sub: '서명 확인', icon: 'plug', color: 'ncp' },
       tf: { kind: 'tile', at: [0.2, 2.6], label: 'main.tf', icon: 'file-code', color: 'olive' },
-      nvpc: { at: [3.8, -1.0], label: 'VPC', sub: 'shop-vpc', icon: 'network', color: 'purple' },
+      nvpc: { at: [3.8, -1.0], size: 's', label: 'VPC', sub: 'shop-vpc', icon: 'network', color: 'purple' },
     },
     edges: {
       e_g1: { from: 'gov', to: 'srv1' },

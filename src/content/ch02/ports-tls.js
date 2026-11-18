@@ -27,11 +27,11 @@ export default {
       mysql: { at: [8.4, -0.4], label: 'MySQL', sub: 'DB', icon: 'database', color: 'purple' },
       // 길목
       hop: { at: [4.6, 2.2], size: 's', label: '공용 Wi-Fi', icon: 'wifi', color: 'gray' },
-      eve: { kind: 'client', at: [7.0, 2.2], label: '엿보는 사람' },
+      eve: { kind: 'client', at: [7.6, 2.2], label: '엿보는 사람' },
       // 인증서 체인
-      leaf: { kind: 'tile', at: [8.4, -0.4], label: '서버 인증서', sub: 'shop.example · 1년', icon: 'file-key', color: 'green' },
+      leaf: { kind: 'tile', at: [8.6, -0.4], label: '서버 인증서', sub: 'shop.example · 1년', icon: 'file-key', color: 'green' },
       inter: { kind: 'tile', at: [6.9, 2.2], label: '중간 CA', icon: 'badge', color: 'yellow' },
-      root: { kind: 'tile', at: [5.4, 4.8], label: '루트 CA', icon: 'shield-check', color: 'orange' },
+      root: { kind: 'tile', at: [5.6, 4.8], label: '루트 CA', icon: 'shield-check', color: 'orange' },
       // TLS 종료
       lb: { at: [4.6, 2.2], label: 'Load\nBalancer', icon: 'split', color: 'orange' },
       w1: { at: [4.6, -1.4], label: '웹 서버 1', sub: 'nginx', icon: 'server', color: 'green' },
@@ -109,7 +109,7 @@ export default {
         title: '3-way 핸드셰이크', icon: 'repeat',
         rows: [['① SYN', '클라이언트 → 서버', 'info'], ['② SYN-ACK', '서버 → 클라이언트', 'accent'], ['③ ACK', '클라이언트 → 서버', 'info']],
       },
-      tags: [{ on: 'nginx', text: 'LISTEN :80', icon: 'door' }],
+      tags: [{ on: 'nginx', text: 'LISTEN :80', icon: 'door', dx: 14 }],
       flows: [
         { path: ['user', 'nginx'], kind: 'ctrl' }, { path: ['nginx', 'user'], kind: 'ctrl', delay: 1.2 }, { path: ['user', 'nginx'], kind: 'ctrl', delay: 2.4 },
         { path: ['user', 'nginx'], kind: 'req', n: 2, delay: 3.6 },
@@ -127,7 +127,7 @@ export default {
       show: ['hop', 'eve'],
       hide: ['e_un'],
       set: { eve: { state: 'hot' } },
-      tags: [{ at: [7.0, 2.2], text: 'pw=1234 읽힘', tone: 'bad', icon: 'eye', dy: 100 }, { on: 'hop', text: '남의 장비', pos: 'left', dy: -12 }],
+      tags: [{ at: [7.6, 2.2], text: 'pw=1234 읽힘', tone: 'bad', icon: 'eye', dy: 100 }, { on: 'hop', text: '남의 장비', pos: 'left', dy: -12 }],
       flows: [
         { path: ['user', 'hop', 'nginx'], kind: 'req', n: 2 },
         { path: ['hop', 'eve'], kind: 'bad', n: 2, delay: 0.9 },
@@ -147,7 +147,7 @@ export default {
         title: 'TLS 1.3 핸드셰이크', icon: 'lock',
         rows: [['① ClientHello', 'SNI · 암호 방식 · 키 재료', 'info'], ['② ServerHello', '인증서 · 서명 · 키 재료', 'accent'], ['③ 그다음부터', '세션 키로 암호화', 'ok']],
       },
-      tags: [{ at: [7.0, 2.2], text: '암호문만 보임', tone: 'ok', icon: 'lock', dy: 100 }, { on: 'nginx', text: ':443', tone: 'ok' }],
+      tags: [{ at: [7.6, 2.2], text: '암호문만 보임', tone: 'ok', icon: 'lock', dy: 100 }, { on: 'nginx', text: ':443', tone: 'ok' }],
       flows: [
         { path: ['user', 'hop', 'nginx'], kind: 'ctrl' }, { path: ['nginx', 'hop', 'user'], kind: 'ctrl', delay: 1.6 },
         { path: ['user', 'hop', 'nginx'], kind: 'data', n: 3, delay: 3.2 },
@@ -168,7 +168,7 @@ export default {
         title: '브라우저가 확인하는 것', icon: 'shield-check',
         rows: [['서명', '아는 루트 CA까지 이어지는가', 'ok'], ['이름', '접속한 도메인과 같은가', 'ok'], ['기간', '유효 기간 안인가', 'ok']],
       },
-      tags: [{ at: [5.4, 4.8], text: '브라우저 · OS에 내장', dy: 92 }],
+      tags: [{ at: [5.6, 4.8], text: '브라우저 · OS에 내장', dy: 92 }],
       flows: [
         { path: ['nginx', 'user'], kind: 'ctrl', n: 2 },
         { path: ['leaf', 'inter', 'root', 'user'], kind: 'ctrl', n: 2, delay: 1.6 },

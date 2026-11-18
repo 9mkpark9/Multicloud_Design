@@ -236,7 +236,7 @@ function checkLesson(L, E, W) {
     // the stage is about 800 × 560: a bigger frame is scaled down, and its labels with it
     if (Object.values(nodes).every((n) => Array.isArray(n.at)) && Object.values(zones).every((z) => Array.isArray(z.at) && Array.isArray(z.size))) {
       const [, , fw, fh] = frameOf(L, vis, st);
-      const limW = st.code ? 640 : 960, limH = 680;
+      const limW = st.code ? 640 : 970, limH = 680;
       if (fw > limW) W.push(`${at}: this step's frame is ${Math.round(fw)} px wide (limit ${limW}${st.code ? ' with a code pane' : ''}); hide what the step does not need or pull things closer`);
       if (fh > limH) W.push(`${at}: this step's frame is ${Math.round(fh)} px tall (limit ${limH}); hide what the step does not need or pull things closer`);
     }

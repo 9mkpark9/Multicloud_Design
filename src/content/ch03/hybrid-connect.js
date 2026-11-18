@@ -223,8 +223,8 @@ export default {
         rows: [['AWS', 'Direct Connect', 'aws'], ['Azure', 'ExpressRoute', 'azure'], ['GCP', 'Cloud Interconnect', 'gcp'], ['NCP', 'Cloud Connect', 'ncp']],
       },
       tags: [
-        { on: 'aws', text: '허브: Transit Gateway', tone: 'aws' }, { on: 'azure', text: '허브: Virtual WAN', tone: 'azure' },
-        { on: 'gcp', text: '글로벌 VPC · NCC', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: 'IPsec VPN', tone: 'ncp', pos: 'bottom' },
+        { on: 'aws', text: '허브: Transit Gateway', tone: 'aws' }, { on: 'azure', text: '허브: Virtual WAN', tone: 'azure', dx: 18 },
+        { on: 'gcp', text: '글로벌 VPC · NCC', tone: 'gcp', pos: 'bottom', dx: -18 }, { on: 'ncp', text: 'IPsec VPN', tone: 'ncp', pos: 'bottom' },
       ],
     },
     {

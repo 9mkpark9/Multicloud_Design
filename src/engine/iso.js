@@ -287,10 +287,13 @@ export function frameOf(lesson, vis, step) {
   for (const t of step?.tags || []) {
     const w = textW(t.text || '', 14) + (t.icon ? 19 : 0) + 18;
     if (t.at) { const [x, y] = proj(t.at[0], t.at[1]); grow(x - w / 2 - 6 + (t.dx || 0), y - 22 + (t.dy || 0)); grow(x + w / 2 + 6 + (t.dx || 0), y + 22 + (t.dy || 0)); }
-    else if (t.on && sc.nodes?.[t.on] && (!vis || vis.has(t.on)) && (t.pos === 'left' || t.pos === 'right')) {
+    else if (t.on && sc.nodes?.[t.on] && (!vis || vis.has(t.on))) {
       const n = sc.nodes[t.on];
-      const [x] = proj(n.at[0], n.at[1]);
-      grow(x + (t.pos === 'right' ? 1 : -1) * (104 + w) + (t.dx || 0), minY);
+      const [x, y] = proj(n.at[0], n.at[1], n.z || 0);
+      const dx = t.dx || 0, dy = t.dy || 0;
+      if (t.pos === 'left' || t.pos === 'right') grow(x + (t.pos === 'right' ? 1 : -1) * (104 + w) + dx, y);
+      else if (t.pos === 'bottom') { grow(x - w / 2 - 6 + dx, y + 118 + dy); grow(x + w / 2 + 6 + dx, y + 118 + dy); }
+      else { grow(x - w / 2 - 6 + dx, y - 150 + dy); grow(x + w / 2 + 6 + dx, y - 150 + dy); }
     }
   }
   for (const fl of step?.flows || []) for (const r of fl.path || []) if (Array.isArray(r)) { const [x, y] = proj(r[0], r[1]); grow(x - 14, y - 14); grow(x + 14, y + 14); }
