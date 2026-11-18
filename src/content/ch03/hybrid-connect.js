@@ -17,20 +17,20 @@ export default {
   ],
   scene: {
     zones: {
-      vpcA: { at: [4.0, -3.9], size: [3.0, 2.6], label: 'VPC A 10.0.0.0/16', color: 'purple' },
+      vpcA: { at: [-1.5, -10.7], size: [3.0, 2.6], label: 'VPC A 10.0.0.0/16', color: 'purple' },
     },
     nodes: {
       // 사무실 ↔ VPC
       office: { at: [0, 0], label: '사무실', sub: '172.16.0.0/16', icon: 'building', color: 'sand' },
-      inet: { at: [2.6, 0], size: 's', label: '인터넷', icon: 'globe', color: 'gray' },
-      dx: { at: [0, -2.6], size: 's', label: '전용선\n접속점', icon: 'cable', color: 'teal' },
-      vgw: { at: [2.6, -2.6], label: '가상\n게이트웨이', sub: 'VGW', icon: 'lock', color: 'orange' },
-      app: { at: [5.3, -2.6], label: '주문 서버', sub: '10.0.11.20', icon: 'server', color: 'blue' },
+      inet: { at: [0, -3.0], size: 's', label: '인터넷', icon: 'globe', color: 'gray' },
+      dx: { at: [3.0, -6.0], size: 's', label: '전용선\n접속점', icon: 'cable', color: 'teal' },
+      vgw: { at: [0, -6.0], label: '가상\n게이트웨이', sub: 'VGW', icon: 'lock', color: 'orange' },
+      app: { at: [0, -9.4], label: '주문 서버', sub: '10.0.11.20', icon: 'server', color: 'blue' },
       // VPC ↔ VPC (한 걸음 물러서서)
       hq: { at: [5.0, 3.4], label: '사무실', sub: '172.16.0.0/16', icon: 'building', color: 'sand' },
-      va: { at: [1.6, 0], label: 'VPC A\n서비스', sub: '10.0.0.0/16', icon: 'network', color: 'purple' },
+      va: { at: [8.4, 0], label: 'VPC A\n서비스', sub: '10.0.0.0/16', icon: 'network', color: 'purple' },
       vb: { at: [5.0, -3.4], label: 'VPC B\n분석', sub: '10.4.0.0/16', icon: 'network', color: 'blue' },
-      vc: { at: [8.4, 0], label: 'VPC C\n공용 도구', sub: '10.5.0.0/16', icon: 'network', color: 'teal' },
+      vc: { at: [1.6, 0], label: 'VPC C\n공용 도구', sub: '10.5.0.0/16', icon: 'network', color: 'teal' },
       tgw: { at: [5.0, 0], label: 'Transit\nGateway', icon: 'waypoints', color: 'orange' },
       // 4대 클라우드
       aws: { at: [3.6, -1.5], label: 'AWS', sub: 'VPC 피어링', icon: 'cloud', color: 'aws' },
@@ -84,7 +84,7 @@ export default {
       hide: ['e_ia'],
       set: { app: { state: null }, e_oi: { tone: 'ok' }, e_iv: { tone: 'ok' } },
       focus: ['vgw'],
-      tags: [{ on: 'inet', text: '암호화 터널 2개', tone: 'ok', icon: 'lock', pos: 'bottom' }],
+      tags: [{ on: 'inet', text: '암호화 터널 2개', tone: 'ok', icon: 'lock', dx: -12 }],
       flows: [
         { path: ['office', 'inet', 'vgw', 'app'], kind: 'req', n: 2 },
         { path: ['app', 'vgw', 'inet', 'office'], kind: 'res', n: 2, delay: 2.6 },
@@ -107,7 +107,7 @@ export default {
       tags: [{ on: 'app', text: '응답이 갈 경로 없음', tone: 'bad' }],
       flows: [
         { path: ['office', 'inet', 'vgw', 'app'], kind: 'req', n: 2 },
-        { path: ['app', [4.2, -2.6]], kind: 'bad', n: 2, delay: 2.6, gap: 0.5 },
+        { path: ['app', [0, -7.9]], kind: 'bad', n: 2, delay: 2.6, gap: 0.5 },
       ],
       metrics: { path: ['터널 UP · 불통', 'bad'] },
       changes: [['-', 'VPC 라우팅에 사무실 경로 누락'], ['+', '172.16.0.0/16 → VGW (경로 전파)'], ['~', '경로도 방화벽도 양쪽 모두']],
@@ -128,7 +128,7 @@ export default {
         rows: [['10.0.0.0/16', 'local (항상 우선)', 'warn'], ['172.16.0.0/16', 'VGW · 본사 사무실', 'ok'], ['10.0.0.0/16 (지사)', '넣을 수 없음', 'bad']],
       },
       tags: [{ on: 'app', text: '10.0.5.20 → local', tone: 'bad' }],
-      flows: [{ path: ['app', [4.2, -2.6]], kind: 'bad', n: 3, gap: 0.5 }],
+      flows: [{ path: ['app', [0, -7.9]], kind: 'bad', n: 3, gap: 0.5 }],
       metrics: { path: ['지사는 연결 불가', 'bad'] },
     },
     {
@@ -148,7 +148,7 @@ export default {
         title: 'VPN과 전용선', icon: 'scale',
         rows: [['Site-to-Site VPN', '빠른 구축 · 지연 변동', 'info'], ['전용선', '지연 일정 · 큰 대역폭', 'ok'], ['전용선의 값', '개통 몇 주 · 월 고정비', 'warn'], ['암호화', 'VPN 기본 · 전용선은 별도', 'warn']],
       },
-      tags: [{ on: 'dx', text: '인터넷을 안 거침', tone: 'ok' }, { on: 'inet', text: 'VPN은 백업', pos: 'bottom' }],
+      tags: [{ on: 'dx', text: '인터넷을 안 거침', tone: 'ok', pos: 'bottom' }, { on: 'inet', text: 'VPN은 백업' }],
       flows: [
         { path: ['office', 'dx', 'vgw', 'app'], kind: 'data', n: 4, gap: 0.3 },
         { path: ['app', 'vgw', 'dx', 'office'], kind: 'res', n: 2, delay: 2.8 },
@@ -185,7 +185,7 @@ export default {
       ],
       callout: { type: 'warn', text: 'A와 C가 통해야 하면 A–C 피어링을 따로 맺어야 합니다. VPC가 n개면 피어링은 <b>n(n−1)/2</b>개. 4개면 6개, 10개면 45개이고 라우팅 테이블도 그만큼 늘어납니다.' },
       show: ['vc', 'e_hb'],
-      tags: [{ on: 'vc', text: 'A에서는 안 보임', tone: 'bad', pos: 'bottom' }, { on: 'hq', text: 'B · C에 못 감', tone: 'bad', pos: 'bottom' }],
+      tags: [{ on: 'vc', text: 'A에서는 안 보임', tone: 'bad' }, { on: 'hq', text: 'B · C에 못 감', tone: 'bad' }],
       flows: [
         { path: ['va', 'vb'], kind: 'req', n: 2 }, { path: ['vb', 'vc'], kind: 'req', n: 2, delay: 0.4 },
         { path: ['va', 'vc'], kind: 'bad', n: 2, delay: 1.2, gap: 0.5 }, { path: ['hq', 'vb'], kind: 'bad', n: 2, delay: 1.6, gap: 0.5 },
@@ -212,22 +212,19 @@ export default {
     {
       key: '4대 클라우드', kind: 'compare', title: '네 클라우드의 연결 서비스',
       body: [
-        '이름만 다르고 뼈대는 같습니다. VPN은 AWS <b>Site-to-Site VPN</b>, Azure <b>VPN Gateway</b>, GCP <b>Cloud VPN</b>, NCP <b>IPsec VPN</b>. 전용선은 <b>Direct Connect</b>, <b>ExpressRoute</b>, <b>Cloud Interconnect</b>, <b>Cloud Connect</b>입니다.',
+        '이름만 다르고 뼈대는 같습니다. 사무실과 잇는 VPN은 AWS <b>Site-to-Site VPN</b>, Azure <b>VPN Gateway</b>, GCP <b>Cloud VPN</b>, NCP <b>IPsec VPN</b>입니다. 전용선의 이름은 표에 모았습니다.',
         '피어링도 네 곳 모두 있고, 맺은 둘 사이만 잇는다는 원칙도 같습니다. 차이도 있어요. GCP의 VPC는 글로벌이라 리전 사이를 따로 이을 필요가 없고, Azure는 피어링에서 <b>게이트웨이 전송</b>을 켜면 스포크 VNet이 허브의 VPN 게이트웨이를 빌려 쓸 수 있습니다.',
       ],
       callout: { type: 'cloud', text: '허브는 AWS Transit Gateway, Azure Virtual WAN, GCP Network Connectivity Center가 맡습니다. 서로 다른 클라우드끼리 잇는 설계는 마지막 장 「멀티클라우드 네트워크」에서 다룹니다.' },
       hide: ['hq', 'va', 'vb', 'vc', 'tgw'],
       show: ['aws', 'azure', 'gcp', 'ncp'],
       panel: {
-        title: 'VPN · 전용선', icon: 'cloud',
-        rows: [
-          ['AWS', 'Site-to-Site VPN · Direct Connect', 'aws'], ['Azure', 'VPN Gateway · ExpressRoute', 'azure'],
-          ['GCP', 'Cloud VPN · Cloud Interconnect', 'gcp'], ['NCP', 'IPsec VPN · Cloud Connect', 'ncp'],
-        ],
+        title: '전용선 서비스', icon: 'cable',
+        rows: [['AWS', 'Direct Connect', 'aws'], ['Azure', 'ExpressRoute', 'azure'], ['GCP', 'Cloud Interconnect', 'gcp'], ['NCP', 'Cloud Connect', 'ncp']],
       },
       tags: [
         { on: 'aws', text: '허브: Transit Gateway', tone: 'aws' }, { on: 'azure', text: '허브: Virtual WAN', tone: 'azure' },
-        { on: 'gcp', text: '글로벌 VPC · NCC', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: 'Cloud Connect', tone: 'ncp', pos: 'bottom' },
+        { on: 'gcp', text: '글로벌 VPC · NCC', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: 'IPsec VPN', tone: 'ncp', pos: 'bottom' },
       ],
     },
     {
