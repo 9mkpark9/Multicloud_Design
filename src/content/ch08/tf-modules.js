@@ -697,7 +697,7 @@ $ cd envs/prod && terraform plan` } },
       set: {
         cfg: { sub: 'main.tf' },
         ws_prod: { state: null, badge: null },
-        r_dev: { icon: 'building', sub: 'dev 계정' },
+        r_dev: { icon: 'building', sub: 'dev 계정', at: [2.2, 5.6] },
         r_stg: { icon: 'building', sub: 'stg 계정' },
         r_prod: { icon: 'building', sub: 'prod 계정' },
       },
@@ -758,7 +758,7 @@ provider "google" {
       callout: { type: 'tip', text: '모듈 버전은 <b>유의적 버전</b>으로 붙입니다. 입구나 출구가 깨지는 변경은 메이저(v2.0.0)를 올려, 쓰는 쪽이 준비하고 올리게 합니다.' },
       set: {
         mod: { sub: 'v1.5.0' },
-        r_dev: { icon: 'folder', sub: 'net v1.5.0' },
+        r_dev: { icon: 'folder', sub: 'net v1.5.0', at: [0.4, 2.2] },
         r_stg: { icon: 'folder', sub: 'net v1.5.0' },
         r_prod: { icon: 'folder', sub: 'net v1.4.0' },
       },
