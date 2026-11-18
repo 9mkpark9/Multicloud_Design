@@ -181,7 +181,8 @@ $ kubectl describe node node-a | grep Pressure
           '노드의 allocatable은 <code>capacity − kube-reserved − system-reserved − eviction 기준치</code>입니다. kubelet · 컨테이너 런타임 · OS가 쓸 몫을 미리 떼어 두는 것이라, 관리형 서비스는 노드 크기에 따라 이 값을 자동으로 정해 둡니다. 큰 노드일수록 떼는 비율이 작아집니다.',
           '스케줄러가 비교하는 것은 "allocatable − 그 노드 Pod들의 requests 합계 ≥ 새 Pod의 requests"입니다. 여러 컨테이너가 있는 Pod는 컨테이너 requests의 합으로 계산해요.',
         ] },
-        { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: `$ kubectl describe node node-a | grep -A3 -E '^(Capacity|Allocatable)'
+        { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: `$ kubectl describe node node-a \\
+    | grep -A3 -E '^(Capacity|Allocatable)'
 Capacity:
   cpu:     2
   memory:  8053980Ki
@@ -208,16 +209,19 @@ api-7d9-m4q  api   420m        205Mi` } },
         '노드 메모리가 모자랄 때 누가 먼저 밀려나는지가 이 등급으로 갈립니다. 같은 노드 A에 redis, api, 디버그용 Pod를 함께 올려 비교해 봅니다.',
       ],
       callout: { type: 'key', text: '확인은 <code>kubectl get pod -o jsonpath=\'{.status.qosClass}\'</code>. 꼭 살아 있어야 하는 Pod는 Guaranteed로 두세요.' },
-      show: ['rd', 'dbg'],
+      show: ['nB', 'nC', 'b1', 'c1', 'c2', 'rd', 'dbg'],
       set: {
         nA: { label: '노드 A' },
-        a1: { badge: 'Burstable', tone: 'info' },
-        a2: { badge: 'Burstable', tone: 'info' },
-        rd: { badge: 'Guaranteed', tone: 'ok' },
-        dbg: { badge: 'BestEffort', tone: 'warn' },
+        a1: { badge: null },
+        a2: { badge: null },
+
       },
       focus: ['dbg'],
-      tags: [{ at: [3, 3], text: '메모리 부족 시 debug부터', tone: 'warn', icon: 'arrow-down', dy: 26 }],
+      tags: [
+        { on: 'rd', text: 'Guaranteed', tone: 'ok', pos: 'left' },
+        { on: 'dbg', text: 'BestEffort · 1순위', tone: 'warn', icon: 'arrow-down', pos: 'bottom' },
+        { on: 'a2', text: '나머지: Burstable', tone: 'info', pos: 'right' },
+      ],
       panel: { title: 'QoS 등급', icon: 'layers', rows: [['Guaranteed', 'req = lim · 가장 늦게', 'ok'], ['Burstable', 'req < lim · 중간', 'info'], ['BestEffort', '아무것도 없음 · 먼저', 'warn']] },
       changes: [['+', 'redis: requests = limits'], ['+', 'debug: 아무것도 없음'], ['~', '쫓겨나는 순서가 정해짐']],
       more: [
@@ -244,8 +248,7 @@ api-7d9-m4q  api   420m        205Mi` } },
       ],
       callout: { type: 'key', text: '통과한 노드가 하나도 없으면 Pod는 <b>Pending</b>으로 남습니다. 이유는 <code>kubectl describe pod</code>의 Events에 적혀 있어요.' },
       hide: ['rd', 'dbg'],
-      show: ['nB', 'nC', 'sched', 'b1', 'b2', 'c1', 'c2', 'e_b'],
-      set: { a1: { badge: null }, a2: { badge: null } },
+      show: ['sched', 'b2', 'e_b'],
       focus: ['b2'],
       tags: [
         { at: [0, 0], text: '남은 400m · 탈락', tone: 'bad', icon: 'x', dy: -30 },
@@ -492,8 +495,8 @@ spec:
           '아직 준비되지 않은 Pod나 메트릭이 비는 Pod는 계산에서 보수적으로 다룹니다. 갓 뜬 Pod의 시작 부하 때문에 과하게 늘리는 일을 줄이려는 것입니다.',
         ] },
         { title: '출력 읽기', code: { title: 'terminal', lang: 'sh', text: `$ kubectl get hpa api
-NAME  REFERENCE       TARGETS      MINPODS  MAXPODS  REPLICAS
-api   Deployment/api  cpu: 75%/50%  3        10       4
+NAME  REFERENCE       TARGETS       MINPODS MAXPODS REPLICAS
+api   Deployment/api  cpu: 75%/50%  3       10      4
 
 $ kubectl describe hpa api | grep -A4 Conditions
   AbleToScale     True   SucceededRescale
