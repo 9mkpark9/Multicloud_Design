@@ -17,15 +17,15 @@ export default {
   ],
   scene: {
     nodes: {
-      users: { kind: 'users', at: [-1.6, 1.6], label: '글로벌 고객' },
+      users: { kind: 'users', at: [-2.4, 1], label: '글로벌 고객' },
       gov: { kind: 'client', at: [6.6, 3.4], label: '공공기관' },
-      staff: { kind: 'users', at: [2.8, -2.8], label: '직원' },
+      staff: { kind: 'users', at: [3, -3.4], label: '직원' },
       aws: { at: [0, 0], label: 'AWS', sub: '글로벌 쇼핑몰', icon: 'cloud', color: 'aws' },
       entra: { at: [5, 0], label: 'Entra ID', sub: '사내 ID', icon: 'id-card', color: 'azure' },
       gcp: { at: [0, 5], label: 'GCP', sub: '분석', icon: 'cloud', color: 'gcp' },
       ncp: { at: [5, 5], label: 'NCP', sub: '공공 존', icon: 'cloud', color: 'ncp' },
       hub: { at: [2.5, 2.5], size: 's', label: '허브', sub: '전용선', icon: 'router', color: 'navy' },
-      tf: { at: [-2.5, 2.5], label: 'Terraform', sub: 'state × 4', icon: 'file-code', color: 'olive' },
+      tf: { at: [-2.8, 1.2], label: 'Terraform', sub: 'state × 4', icon: 'file-code', color: 'olive' },
       git: { kind: 'cyl', at: [-4, 4], label: 'Git 저장소', icon: 'git', color: 'slate' },
       ci: { at: [-2, 2], label: 'CI', sub: '빌드·스캔·서명', icon: 'hammer', color: 'slate' },
       argo: { at: [0, 5], label: 'Argo CD', sub: '플릿 배포', icon: 'refresh', color: 'navy' },
@@ -76,15 +76,15 @@ export default {
     {
       key: '요구사항', kind: 'problem', title: '요구부터: 무엇을 어디에 둘까',
       body: [
-        '마지막으로 <code>shop.example</code>을 처음부터 설계합니다. 요구는 넷입니다. 국내 <b>공공 고객 데이터</b>는 인증받은 NCP 공공 존에, <b>글로벌 쇼핑몰</b>은 리전이 많은 AWS에, <b>분석</b>은 GCP BigQuery에, 직원 로그인은 회사가 이미 쓰는 <b>Entra ID</b>로.',
+        '마지막으로 <code>shop.example</code>을 처음부터 설계합니다. 5장에서 본 네 클라우드의 성격에 요구 넷을 맞춥니다. 국내 <b>공공 고객 데이터</b>는 인증받은 NCP 공공 존에, <b>글로벌 쇼핑몰</b>은 리전이 많은 AWS에, <b>분석</b>은 GCP BigQuery에, 직원 로그인은 회사가 이미 쓰는 <b>Entra ID</b>로.',
         '비기능 요구도 적습니다. 글로벌 서비스는 RTO 1시간 · RPO 5분, 배포는 하루에도 여러 번, 클라우드 간 전송비는 월 예산 안. 11장 첫 레슨의 원칙대로 클라우드마다 <b>이유가 한 문장</b>으로 붙어 있는지 확인합니다.',
       ],
       callout: { type: 'key', text: '설계는 서비스 목록이 아니라 요구에서 시작합니다. Azure는 이 설계에서 워크로드 없이 <b>ID만</b> 맡습니다. 요구가 없는 것은 그림에 넣지 않습니다.' },
       show: ['users', 'gov', 'aws', 'gcp', 'ncp', 'entra'],
       tags: [
         { on: 'aws', text: '글로벌 서비스', tone: 'aws' },
-        { on: 'entra', text: '사내 ID', tone: 'azure', pos: 'bottom' },
-        { on: 'gcp', text: '분석', tone: 'gcp', pos: 'bottom' },
+        { on: 'entra', text: '직원 로그인', tone: 'azure', pos: 'bottom' },
+        { on: 'gcp', text: 'BigQuery로 분석', tone: 'gcp', pos: 'bottom' },
         { on: 'ncp', text: '공공 고객 데이터', tone: 'ncp', pos: 'bottom' },
       ],
       flows: [{ path: ['users', 'aws'], kind: 'req', n: 2 }, { path: ['gov', 'ncp'], kind: 'req', n: 2, delay: 0.5 }],
@@ -273,8 +273,8 @@ export default {
       panel: {
         title: '코스 지도', icon: 'map',
         rows: [
-          ['01–02 기초 · Linux · IP', '주소 계획', 'mute'], ['03–04 네트워크 · IAM', '허브 · 신원', 'info'], ['05 4대 클라우드', '요구별 배치', 'accent'],
-          ['06–07 Docker · K8s', 'EKS · NKS', 'info'], ['08–09 Terraform · CI/CD', '모듈 · GitOps', 'ok'], ['10–11 운영 · 멀티클라우드', '관측 · 비용 · DR', 'warn'],
+          ['01–02 기초 · IP', '주소 계획', 'mute'], ['03–04 네트워크 · IAM', '허브 · 신원', 'info'], ['05 4대 클라우드', '요구별 배치', 'accent'],
+          ['06–07 Docker · K8s', 'EKS · NKS', 'info'], ['08–09 IaC · CI/CD', '모듈 · GitOps', 'ok'], ['10–11 운영 · 통합', '관측 · DR · 설계', 'warn'],
         ],
       },
       focus: ['hub'],
