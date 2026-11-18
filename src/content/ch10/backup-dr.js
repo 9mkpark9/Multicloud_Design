@@ -24,7 +24,7 @@ export default {
       users: { kind: 'users', at: [-2.6, 0.4], label: '사용자' },
       dns: { at: [-0.4, 0.4], label: 'DNS', sub: '헬스 체크', icon: 'compass', color: 'purple' },
       ops: { kind: 'client', at: [3.6, -4.2], label: '운영자' },
-      attacker: { kind: 'client', at: [9.0, -1.0], label: '공격자' },
+      attacker: { kind: 'client', at: [8.0, -3.3], label: '공격자' },
       app: { at: [2, -1.6], label: '앱 서버', sub: '6대', icon: 'server', color: 'blue' },
       db: { kind: 'cyl', at: [4.3, -1.6], label: '주 DB', icon: 'database', color: 'purple' },
       sb: { kind: 'cyl', at: [6.3, -1.6], label: '대기 DB', icon: 'database', color: 'gray' },
@@ -123,6 +123,7 @@ $ aws rds restore-db-instance-to-point-in-time \\
           '요즘은 <b>3-2-1-1-0</b>이라고도 합니다. 1벌은 <b>불변(지울 수 없는)</b> 사본, 0은 복원 검증에서 <b>오류 0</b>. 다음 두 단계가 이 두 숫자의 이야기입니다.',
           '"2가지 저장 방식"은 클라우드에서 "같은 장애로 함께 망가지지 않는 곳"으로 읽습니다. 같은 계정 · 같은 리전의 스냅샷 두 벌은 한 번의 실수로 함께 사라질 수 있어요.',
           'DB만이 아닙니다. 오브젝트 스토리지(버전 관리), 설정, 시크릿, <b>인프라 코드</b>도 복구 대상입니다.',
+          '다른 리전으로 복사한 스냅샷은 그 리전의 KMS 키로 다시 암호화됩니다. 복사 설정에 대상 리전의 키를 지정해 두세요.',
         ] },
       ],
       hide: ['sb', 'ops'],
@@ -212,6 +213,7 @@ resource "aws_s3_bucket_object_lock_configuration" "v" {
         ] },
         { title: '실무 팁', body: [
           '"백업이 있다"는 문장 대신 "<b>마지막 복원 검증이 언제였고, 몇 분 걸렸나</b>"를 물으세요. 이 숫자가 없으면 RTO는 희망 사항입니다. 덤프 방식을 쓴다면 결과 파일 크기가 0이거나 전날보다 크게 줄었을 때 알림을 거는 것만으로도 이 사고는 막을 수 있었습니다.',
+          '복원 절차는 "그 자리에서 정할 것"을 줄이는 방향으로 씁니다. 복원 시점을 고르는 기준, 결정권자, 접속 주소를 바꾸는 순서까지 미리 적어 두면 9시간 중 절반은 사라집니다.',
         ] },
       ],
       hide: ['attacker'],
@@ -247,6 +249,7 @@ resource "aws_s3_bucket_object_lock_configuration" "v" {
         { title: '자동화 방법', body: [
           '스크립트를 스케줄 작업(CI의 예약 실행, 쿠버네티스 CronJob 등)으로 돌리고 결과를 메트릭으로 내보내면, 관측 레슨의 알림 체계에 그대로 얹을 수 있습니다. "마지막 성공한 복원 검증이 8일 전"이면 알림이 오게요. AWS Backup에는 복원 테스트를 일정으로 돌리는 기능도 있습니다.',
           '검증용 복원은 <b>격리된 계정 · 네트워크</b>에서 합니다. 운영 데이터 사본이므로 접근 권한과 삭제 절차도 운영과 같은 수준으로 관리해야 해요.',
+          '스크립트 마지막에 인스턴스를 지우는 것을 잊으면 검증용 DB가 쌓여 비용 레슨의 "잊힌 리소스"가 됩니다. 실패해도 지워지게 정리 단계를 따로 두세요.',
         ] },
       ],
       hide: ['r1', 'app', 'db', 'snap', 'ops'],
@@ -254,18 +257,19 @@ resource "aws_s3_bucket_object_lock_configuration" "v" {
       set: { r2: { label: '복원 검증 환경' }, db2: { label: '검증용 DB' }, snap: { state: null, badge: null }, db: { state: null } },
       focus: ['db2'],
       code: {
-        title: 'restore-drill.sh', lang: 'sh', hl: [6, 7, 8, 9],
+        title: 'restore-drill.sh', lang: 'sh', hl: [7, 8, 9, 10],
         text: `#!/bin/sh -e
-start=$(date +%s)
-aws rds restore-db-instance-from-db-snapshot \\
-  --db-instance-identifier drill-$(date +%m%d) \\
-  --db-snapshot-identifier "$LATEST_SNAP"
+id=drill-$(date +%m%d); t0=$(date +%s)
+aws rds \\
+  restore-db-instance-from-db-snapshot \\
+  --db-instance-identifier $id \\
+  --db-snapshot-identifier "$SNAP"
 aws rds wait db-instance-available \\
-  --db-instance-identifier drill-$(date +%m%d)
-psql "$DRILL_URL" -c \\
-  "SELECT count(*), max(created_at) FROM orders"
-echo "restore_minutes $(( ($(date +%s)-start)/60 ))"
-# 결과를 메트릭으로 보내고, 인스턴스 삭제`,
+  --db-instance-identifier $id
+psql "$DRILL_URL" -c "SELECT count(*),
+  max(created_at) FROM orders"
+echo "minutes $(( ($(date +%s)-t0)/60 ))"
+# 결과를 메트릭으로 보내고 $id 삭제`,
       },
       tags: [{ on: 'db2', text: '복원 47분 · 행 수 정상', tone: 'ok', pos: 'right' }],
       flows: [{ path: ['bk2', 'db2'], kind: 'data', n: 3, gap: 0.4 }],
@@ -372,6 +376,7 @@ $ psql -c "SELECT now() - pg_last_xact_replay_timestamp()
           '관리형 DB는 리전 간 읽기 복제본이나 전역 DB 기능(Aurora Global Database, Azure SQL 지역 복제 · 장애 조치 그룹, Cloud SQL 리전 간 복제본 등)으로 이것을 대신해 줍니다.',
           '복제본은 평소 <b>읽기 전용 트래픽</b>(보고서, 분석)을 받게 하면 놀리는 비용이 아니라 쓰는 비용이 됩니다. 단, 장애 때 그 트래픽을 어떻게 할지도 정해 두세요.',
           '복제 지연이 커지는 시간(대량 배치, 인덱스 생성)을 알아 두세요. 그 시간의 실제 RPO는 평소보다 훨씬 깁니다.',
+          '"코드만 준비"한 서버는 그 코드가 지금도 동작하는지 아무도 모릅니다. 최소한 월 1회는 DR 리전에 실제로 띄워 보고 내리세요.',
         ] },
       ],
       hide: ['bk2'],
@@ -492,6 +497,7 @@ $ psql -c "SELECT now() - pg_last_xact_replay_timestamp()
         ] },
         { title: '실무 팁', body: [
           '런북은 <b>게임데이</b>(정해 둔 날 실제로 전환해 보는 훈련)로만 검증됩니다. 분기마다 전환해 보고, 걸린 시간을 재고, 막힌 곳을 고칩니다. 처음 몇 번은 반드시 무언가 막혀요. 그것을 장애 날이 아니라 훈련 날 찾는 것이 목적입니다.',
+          '전환 판단은 자동화하지 않는 경우가 많습니다. 일시적인 네트워크 흔들림에 리전 전체를 넘기면 그 자체가 장애가 되니까요. 감지는 자동으로, 선언은 사람이, 실행은 스크립트로 나누는 것이 흔한 절충입니다.',
         ] },
       ],
       hide: ['r1', 'app', 'db'],
@@ -499,19 +505,21 @@ $ psql -c "SELECT now() - pg_last_xact_replay_timestamp()
       set: { r2: { label: 'DR 리전 (승격)' }, app2: { sub: '2대 → 6대' }, db2: { label: 'DB (승격)' } },
       focus: ['db2'],
       code: {
-        title: 'runbook: 리전 전환', lang: 'sh', hl: [3, 4, 7, 8],
+        title: 'runbook: 리전 전환', lang: 'sh', hl: [4, 5, 7, 8, 9, 10],
         text: `# 0. DR 선언 (권한자 승인)
 # 1. 주 리전 쓰기 중지 · 옛 주 DB 격리
 # 2. 복제본 승격
 $ aws rds promote-read-replica \\
-    --db-instance-identifier shop-db-dr
+  --db-instance-identifier shop-db-dr
 # 3. DR 리전 서버 확장
-$ aws autoscaling set-desired-capacity \\
-    --auto-scaling-group-name shop-dr --desired-capacity 6
+$ aws autoscaling \\
+  set-desired-capacity \\
+  --auto-scaling-group-name shop-dr \\
+  --desired-capacity 6
 # 4. DNS 전환 (헬스 체크가 안 했다면)
 # 5. 스모크 테스트 · 주문 1건 · 공지`,
       },
-      tags: [{ on: 'dns', text: 'TTL 60초', icon: 'clock', pos: 'bottom' }],
+      tags: [{ on: 'dns', text: 'TTL 60초', icon: 'clock', pos: 'left' }],
       flows: [{ path: ['dns', 'app2', 'db2'], kind: 'req', n: 2 }],
       metrics: { rto: ['훈련 실측 12분', 'ok'], test: ['분기별 게임데이', 'ok'] },
       changes: [['+', 'DR 런북 · 전환 스크립트'], ['+', '분기마다 게임데이']],
@@ -525,7 +533,7 @@ $ aws autoscaling set-desired-capacity \\
       ],
       callout: { type: 'tip', text: '가장 싼 다른 클라우드 대비는 <b>백업 사본 한 벌을 다른 클라우드의 오브젝트 스토리지에</b> 두는 것입니다. RTO는 길어도, 사업자 계정이 통째로 막혀도 데이터는 남습니다.' },
       more: [
-        { title: '같은 클라우드 다른 리전 vs 다른 클라우드', rows: [
+        { title: '다른 리전 vs 다른 클라우드', rows: [
           ['막아 주는 것', '리전 장애 vs 사업자 전체 · 계정 문제까지', 'info'],
           ['복제', '관리형 기능 vs 직접 구성(DB 복제 · CDC)', 'warn'],
           ['인프라 코드', '모듈 재사용 vs 프로바이더별 두 벌', 'warn'],
@@ -537,6 +545,7 @@ $ aws autoscaling set-desired-capacity \\
           '<b>인프라</b>: Terraform으로 각 클라우드의 네트워크 · 클러스터를 같은 구조로 짓습니다(8장 멀티 프로바이더).',
           '<b>데이터</b>: 가장 어렵습니다. PostgreSQL · MySQL 같은 표준 엔진을 쓰면 논리 복제나 CDC 도구로 클라우드 간 복제가 가능하지만, 사업자 고유 DB는 옮길 길이 좁습니다.',
           '<b>신원 · DNS</b>: 사용자 로그인과 DNS가 한 클라우드에 묶여 있으면 그것이 단일 장애점이 됩니다. 11장에서 다룹니다.',
+          '<b>훈련</b>: 다른 클라우드 DR은 같은 클라우드 DR보다 낡기 쉽습니다. 평소 그쪽을 쓰는 사람이 없으니까요. 게임데이 주기를 더 짧게 잡으세요.',
         ] },
       ],
       show: ['r1', 'app', 'db', 'users'],
@@ -575,6 +584,7 @@ $ aws autoscaling set-desired-capacity \\
           '<b>교차 계정 · 교차 리전 복사</b>를 정책 안에서 할 수 있는지, 불변 잠금을 걸 수 있는지 확인합니다.',
           '<b>복원 테스트</b>를 서비스가 도와주는지, 복원 시간을 보고해 주는지도 봅니다.',
           '멀티클라우드라면 각 클라우드의 백업 서비스는 그대로 쓰고, <b>목표(RPO · RTO)와 검증 결과만 한 대시보드</b>에 모으는 것이 현실적입니다.',
+          '서버 복제형 DR 서비스는 VM 단위로 디스크를 계속 복제해 두는 방식이라 오래된 앱을 빠르게 보호하기 좋지만, 컨테이너 · 관리형 서비스 중심의 구조에는 IaC와 데이터 복제 조합이 더 잘 맞습니다.',
         ] },
       ],
       hide: ['r1', 'r2', 'app', 'db', 'app2', 'db2', 'users', 'dns', 'e_rep'],
@@ -593,7 +603,7 @@ $ aws autoscaling set-desired-capacity \\
       ],
       hide: ['plan', 'aws', 'azure', 'gcp', 'ncp', 'e_restore'],
       show: ['r1', 'r2', 'app', 'db', 'app2', 'db2', 'users', 'dns', 'e_rep', 'snap', 'bk2'],
-      set: { r2: { label: 'DR 리전' }, e_rep: { label: '비동기 복제' }, bk2: { badge: '불변', tone: 'ok' } },
+      set: { r2: { label: 'DR 리전' }, e_rep: { label: '비동기 복제' }, bk2: { badge: null } },
       flows: [
         { path: ['users', 'dns', 'app', 'db'], kind: 'req', n: 2 },
         { path: ['db', 'db2'], kind: 'sync', n: 2, delay: 1.2 },

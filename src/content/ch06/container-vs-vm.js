@@ -83,7 +83,7 @@ export default {
           '<b>언어 런타임</b>: Node · Python · JVM의 버전. 문법이나 내장 API가 버전마다 다릅니다.',
           '<b>공유 라이브러리</b>: glibc, OpenSSL처럼 OS에 깔린 C 라이브러리. 네이티브 모듈(<code>bcrypt</code>, <code>sharp</code> 등)은 이것과 맞물려 컴파일됩니다.',
           '<b>OS 패키지와 도구</b>: ImageMagick, 폰트, CA 인증서 묶음 같은 것들.',
-          '<b>설정</b>: 환경 변수, 시간대(TZ), 로케일, 파일 경로와 권한.',
+          '<b>설정</b>: 환경 변수, 시간대(TZ), 로케일, 파일 경로와 권한.', '<b>CPU 아키텍처</b>: 실행 파일이 x86(amd64)용인지 ARM(arm64)용인지도 환경의 일부입니다.',
         ] },
         { title: '직접 해보기', body: ['두 곳의 환경을 나란히 찍어 보면 어디가 다른지 바로 보입니다. 장애 보고서에 이 출력을 붙이는 습관만으로도 원인 찾기가 빨라져요.'],
           code: { title: 'terminal', lang: 'sh', text: '$ node -v\nv20.11.1\n$ ldd --version | head -1\nldd (Ubuntu GLIBC 2.35-0ubuntu3) 2.35\n$ openssl version\nOpenSSL 3.0.2 15 Mar 2022\n\n# 운영 서버에서 같은 명령 → v16.20.2, GLIBC 2.31 …' } },
@@ -117,7 +117,7 @@ export default {
           '<code>nvm</code>, <code>pyenv</code>처럼 언어 런타임을 여러 버전 깔아 두는 도구는 첫 번째 문제의 일부만 풉니다. OS 라이브러리, 포트, 메모리는 여전히 모두가 나눠 씁니다.',
           '메모리가 바닥나면 Linux 커널의 <b>OOM killer</b>가 점수(<code>oom_score</code>)가 높은 프로세스를 골라 강제로 끝냅니다. 메모리를 새게 만든 범인이 아니라 옆 앱이 죽는 일도 생겨, 원인 찾기가 더 어려워집니다.',
         ] },
-        { title: '더 생각해 볼 것', body: ['"앱마다 서버를 한 대씩 쓰면 되지 않나?"가 자연스러운 다음 질문입니다. 그 질문에 대한 답이 다음 단계의 VM이고, VM이 남긴 숙제가 컨테이너로 이어집니다.'] },
+        { title: '더 생각해 볼 것', body: ['"앱마다 서버를 한 대씩 쓰면 되지 않나?"가 자연스러운 다음 질문입니다. 그 질문에 대한 답이 다음 단계의 VM이고, VM이 남긴 숙제가 컨테이너로 이어집니다. 실제로 "서버 한 대에 앱 하나"는 오랫동안 표준이었고, 그 결과 CPU를 10%도 쓰지 않는 서버가 줄지어 있는 풍경이 흔했습니다.'] },
       ],
     },
     {
@@ -141,7 +141,7 @@ export default {
         ] },
         { title: '직접 해보기', body: ['클라우드 VM 안에서 보면, 내가 쓰는 서버가 하이퍼바이저 위에 있다는 흔적이 보입니다.'],
           code: { title: 'terminal (클라우드 VM)', lang: 'sh', text: '$ lscpu | grep -i hypervisor\nHypervisor vendor:   KVM\n$ uname -r\n6.8.0-1015-aws\n# 이 VM만의 커널. 옆 VM은 다른 커널을 띄웁니다' } },
-        { title: '클라우드에서는', body: ['AWS는 KVM 기반의 Nitro, Azure는 Hyper-V 계열, GCP는 KVM 기반 하이퍼바이저를 씁니다. 어느 쪽이든 하이퍼바이저는 사업자가 운영하고, 우리는 그 위의 게스트 OS부터 책임집니다(공동 책임 모델).'] },
+        { title: '클라우드에서는', body: ['AWS는 KVM 기반의 Nitro, Azure는 Hyper-V 계열, GCP는 KVM 기반 하이퍼바이저를 씁니다. 어느 쪽이든 하이퍼바이저는 사업자가 운영하고, 우리는 그 위의 게스트 OS부터 책임집니다(공동 책임 모델). 하이퍼바이저 없이 물리 서버를 통째로 빌리는 베어메탈 상품도 있는데, 라이선스나 특수 하드웨어 때문에 고르는 경우가 대부분입니다.'] },
       ],
     },
     {
@@ -167,7 +167,7 @@ export default {
         ] },
         { title: '실무 판단', body: [
           'VM이 나쁜 선택이라는 뜻은 아닙니다. 커널을 직접 고르거나 바꿔야 할 때, Windows 전용 소프트웨어, 라이선스가 VM 단위인 상용 제품, 서로 믿지 못하는 고객을 나눌 때는 여전히 VM이 맞습니다.',
-          '다만 "앱 하나에 VM 하나"로 수십 개 서비스를 운영하면 비용의 대부분이 앱이 아니라 OS에 들어갑니다. 클라우드 청구서에서 CPU 사용률이 5–10%인 VM이 줄지어 있다면 이 구조를 의심해 볼 만합니다.',
+          '다만 "앱 하나에 VM 하나"로 수십 개 서비스를 운영하면 비용의 대부분이 앱이 아니라 OS에 들어갑니다. 클라우드 청구서에서 CPU 사용률이 5–10%인 VM이 줄지어 있다면 이 구조를 의심해 볼 만합니다.', '반대로 컨테이너로 옮겨도 VM이 사라지지는 않습니다. 컨테이너를 돌릴 VM(노드)은 여전히 필요하고, 달라지는 점은 VM 한 대에 앱 여러 개를 안전하게 올릴 수 있게 된다는 것입니다.',
         ] },
       ],
     },
@@ -197,6 +197,7 @@ export default {
         { title: 'Mac · Windows에서는', body: [
           'Docker Desktop은 가벼운 Linux VM(Windows는 WSL 2)을 띄우고 그 안에서 Docker 엔진을 돌립니다. 그래서 Mac에서 <code>uname -r</code>을 쳐 보면 macOS가 아닌 Linux 커널 버전이 나와요. Windows 커널을 쓰는 Windows 컨테이너도 따로 있지만, 클라우드 컨테이너의 대부분은 Linux입니다.',
         ] },
+        { title: '흔한 실수', list: ['"컨테이너 = 가벼운 VM"으로 이해하고 안에서 systemd · SSH 서버 · cron까지 돌리는 것. 컨테이너 하나에는 역할(프로세스) 하나가 원칙입니다.', '이미지가 커널까지 고정해 주지는 않습니다. 특정 커널 기능에 기대는 프로그램은 호스트가 바뀌면 동작이 달라질 수 있어요.'] },
       ],
     },
     {
@@ -225,6 +226,7 @@ export default {
         { title: '출력 읽기', body: [
           '호스트의 <code>ps</code>에서 컨테이너 앱이 그대로 보이고, 사용자도 <code>root</code>로 찍힙니다. 컨테이너 안의 root는 (따로 설정하지 않으면) <b>호스트의 root와 같은 사용자 번호(UID 0)</b>입니다. 뒤에서 볼 격리 한계와 Dockerfile 레슨의 <code>USER</code>가 중요한 이유예요.',
         ] },
+        { title: '흔한 실수', list: ['"컨테이너에 접속한다"는 말 때문에 SSH 서버를 찾는 경우가 많습니다. 실행 중인 컨테이너 안에서 명령을 실행하는 것은 <code>docker exec</code>이고, 새 프로세스를 같은 namespace에 넣는 방식입니다.', '호스트에서 컨테이너 프로세스를 <code>kill</code>하면 컨테이너도 끝납니다. 컨테이너를 멈출 때는 <code>docker stop</code>으로 정리할 시간을 줍니다.'] },
       ],
     },
     {
@@ -256,7 +258,7 @@ export default {
           code: { title: 'terminal (Linux)', lang: 'sh', text: '$ sudo unshare --pid --fork --mount-proc bash\n# ps -e\n  PID TTY          TIME CMD\n    1 pts/0    00:00:00 bash\n    8 pts/0    00:00:00 ps\n\n$ ls -l /proc/4123/ns    # 호스트에서, 컨테이너 PID\nnet -> \'net:[4026532301]\'\npid -> \'pid:[4026532299]\'' } },
         { title: '흔한 실수', list: [
           '<code>--network host</code>, <code>--pid host</code>는 해당 namespace를 <b>호스트와 공유</b>합니다. 편하지만 그만큼 격리가 사라집니다.',
-          '디버깅할 때는 <code>nsenter -t 4123 -n ss -lntp</code>처럼 호스트에서 컨테이너의 네트워크 namespace에 들어가 볼 수 있습니다. 이미지에 도구가 없어도 됩니다.',
+          '디버깅할 때는 <code>nsenter -t 4123 -n ss -lntp</code>처럼 호스트에서 컨테이너의 네트워크 namespace에 들어가 볼 수 있습니다. 이미지에 도구가 없어도 됩니다.', 'PID namespace 때문에 컨테이너 안의 앱은 PID 1이 됩니다. PID 1은 종료 신호 처리와 좀비 프로세스 정리를 맡는 특별한 자리라, Dockerfile 레슨에서 다시 다룹니다.', 'UTS namespace 덕분에 컨테이너마다 호스트 이름이 따로입니다. 로그에 찍히는 호스트 이름이 컨테이너 ID처럼 보이는 이유예요.',
         ] },
       ],
     },
@@ -284,7 +286,7 @@ export default {
         { title: '실무 팁', list: [
           '한도는 평소 사용량이 아니라 <b>최대치 + 여유</b>로 잡습니다. <code>docker stats</code>로 피크를 먼저 관찰하세요.',
           '앱 런타임에도 알려 줘야 합니다. Node는 <code>--max-old-space-size</code>, JVM은 <code>-XX:MaxRAMPercentage</code>로 힙을 한도 안쪽에 맞춥니다.',
-          '쿠버네티스에서는 같은 일을 requests · limits가 합니다(7장 스케줄링 레슨).',
+          '쿠버네티스에서는 같은 일을 requests · limits가 합니다(7장 스케줄링 레슨).', '<code>--memory-swap</code>을 <code>--memory</code>와 같은 값으로 두면 스왑을 쓰지 않습니다. 느려지며 버티는 대신 바로 한도에 걸려 원인이 분명해집니다.', 'CPU는 상한 대신 상대 비중(<code>--cpu-shares</code>)으로 줄 수도 있습니다. 여유가 있으면 더 쓰고, 경쟁할 때만 비율대로 나눕니다.',
         ] },
       ],
     },
@@ -312,8 +314,8 @@ export default {
         ] },
         { title: '고친 뒤의 모습', list: [
           '모든 컨테이너에 <code>--memory</code>를 겁니다. 그러면 앱 D만 <code>OOMKilled: true</code>로 끝나고, 범인이 로그에 바로 드러납니다.',
-          '<code>--restart unless-stopped</code>로 죽은 컨테이너를 다시 살리되, 재시작 횟수를 모니터링해 누수를 고칩니다.',
-          '호스트 자체에도 여유 메모리를 남겨 dockerd와 에이전트가 함께 쓰러지지 않게 합니다.',
+          '<code>--restart unless-stopped</code>로 죽은 컨테이너를 다시 살리되, 재시작 횟수를 모니터링해 누수를 고칩니다.', '한도를 걸었는데도 같은 컨테이너가 자꾸 137로 죽는다면, 한도를 늘리기 전에 메모리 그래프가 내려오지 않고 오르기만 하는지(누수) 먼저 봅니다.',
+          '호스트 자체에도 여유 메모리를 남겨 dockerd와 에이전트가 함께 쓰러지지 않게 합니다.', '호스트 메모리 사용률에 알림을 걸어 둡니다. 호스트 OOM은 그 자체로 장애 신호입니다.',
         ] },
       ],
     },
@@ -342,6 +344,7 @@ export default {
         { title: '더 알아보기', body: [
           '이미지 형식은 <b>OCI</b>라는 표준으로 정해져 있어, Docker로 만든 이미지를 Podman이나 쿠버네티스의 containerd도 그대로 실행합니다. 이미지가 정확히 어떻게 생겼는지, 왜 "읽기 전용"인지는 다음 레슨(이미지와 레이어)에서 레이어를 한 장씩 뜯어 보며 다룹니다.',
         ] },
+        { title: '실무 팁', list: ['같은 태그 아래 여러 아키텍처 이미지를 묶어 두면(멀티 아키텍처 이미지) 서버가 자기 CPU에 맞는 것을 알아서 받습니다. 공식 이미지 대부분이 이렇게 배포됩니다.', 'Apple Silicon Mac에서 amd64 이미지를 에뮬레이션으로 돌릴 수는 있지만 느리고 가끔 다르게 동작합니다. 테스트는 운영과 같은 아키텍처에서 하는 것이 안전합니다.', '클라우드에도 ARM 기반 VM(AWS Graviton 등)이 늘고 있어, 아키텍처를 의식하는 일이 점점 흔해집니다.'] },
       ],
     },
     {
@@ -399,7 +402,7 @@ export default {
           '<code>--user</code>: UID 0이 아닌 사용자로 실행합니다. 뚫려도 호스트의 root가 아닙니다.',
           '<code>--cap-drop ALL</code>: capability를 모두 뺍니다. 1024 아래 포트를 열어야 하면 <code>--cap-add NET_BIND_SERVICE</code>만 다시 줍니다.',
           '<code>--read-only</code> + <code>--tmpfs /tmp</code>: 공격자가 도구를 내려받아 심을 곳을 없애고, 꼭 필요한 임시 폴더만 메모리에 둡니다.',
-          '<code>no-new-privileges</code>: setuid 프로그램 등으로 권한을 다시 올리는 길을 막습니다.',
+          '<code>no-new-privileges</code>: setuid 프로그램 등으로 권한을 다시 올리는 길을 막습니다.', '<code>--memory</code> · <code>--pids-limit</code>: 뚫린 프로세스가 자원을 고갈시켜 이웃을 쓰러뜨리는 것을 막습니다.',
         ] },
         { title: '한 단계 더', body: [
           'Docker를 root 없이 돌리는 <b>rootless 모드</b>나, 컨테이너의 root를 호스트의 일반 UID로 바꿔 주는 <b>user namespace</b>(<code>userns-remap</code>)도 있습니다. 더 강한 경계가 필요하면 gVisor(커널 역할을 사용자 공간에서 대신)나 Kata Containers(컨테이너마다 초경량 VM)를 런타임으로 끼웁니다. GKE Sandbox가 gVisor를 쓰는 대표적인 예입니다.',
