@@ -159,7 +159,7 @@ LOG_LEVEL=debug
       title: '터미널', lang: 'sh',
       text: `$ kubectl create secret generic \\
     api-secret \\
-    --from-literal=DB_PASSWORD=s3cr3t-pw
+  --from-literal=DB_PASSWORD=s3cr3t-pw
 secret/api-secret created
 
 $ kubectl get secret api-secret -o yaml
@@ -190,7 +190,7 @@ spec:
   data:
     - secretKey: DB_PASSWORD
       remoteRef:
-        key: prod/shop/db # 저장소 안 이름
+        key: prod/shop/db
         property: password
 `,
     },
@@ -570,18 +570,18 @@ env:
         '그래서 비밀값은 <b>파일로 마운트</b>하는 편이 안전합니다. 메모리(tmpfs)에만 놓이고, 권한을 좁힐 수 있으며, Secret이 바뀌면 파일도 갱신됩니다.',
       ],
       callout: { type: 'tip', text: '용도에 따라 정해진 <b>Secret 타입</b>도 있습니다. TLS 인증서, 비공개 레지스트리 로그인 정보는 정해진 타입과 키 이름으로 만들어야 쓰는 쪽이 알아봅니다.' },
-      panel: {
-        title: '자주 쓰는 Secret 타입', icon: 'key',
-        rows: [
-          ['Opaque', '임의의 키-값 (기본)', 'info'],
-          ['kubernetes.io/tls', 'tls.crt · tls.key', 'accent'],
-          ['kubernetes.io/dockerconfigjson', '이미지 받기 인증', 'accent'],
-          ['kubernetes.io/basic-auth', 'username · password', 'mute'],
-        ],
-      },
       tags: [{ on: 'pod_p', text: '/etc/secret (tmpfs)', tone: 'ok', icon: 'lock', pos: 'bottom' }],
       flows: [{ path: ['sec', 'pod_p'], kind: 'data', n: 2 }],
       more: [
+        {
+          title: '자주 쓰는 Secret 타입',
+          rows: [
+            ['Opaque', '임의의 키-값 (기본)', 'info'],
+            ['kubernetes.io/tls', 'tls.crt · tls.key', 'accent'],
+            ['kubernetes.io/dockerconfigjson', '비공개 레지스트리 로그인', 'accent'],
+            ['kubernetes.io/basic-auth', 'username · password', 'mute'],
+          ],
+        },
         {
           title: '설정 예시',
           code: {

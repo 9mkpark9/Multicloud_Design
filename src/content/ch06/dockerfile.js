@@ -236,6 +236,7 @@ CMD ["node", "dist/server.js"]
           'lock 파일이 Git에 없다면 이 요령 전체가 흔들립니다. lock 파일은 반드시 커밋합니다.',
         ] },
         { title: '흔한 실수', list: ['<code>package.json</code>만 복사하고 lock 파일을 빼먹으면 <code>npm ci</code>가 실패합니다. 두 파일을 함께 복사하세요.', '여러 패키지가 든 저장소(monorepo)에서는 각 패키지의 의존성 파일을 모두 먼저 복사해야 해서 줄이 길어집니다. 이때는 캐시 마운트(다음 다음 단계)를 함께 씁니다.', '의존성 설치 뒤 <code>COPY . .</code>가 로컬 <code>node_modules</code>로 덮어쓰지 않게 <code>.dockerignore</code>가 꼭 필요합니다(다음 단계).'] },
+        { title: '실무 팁', body: ['이 순서는 언어와 상관없는 원칙입니다. "의존성 선언 파일 → 설치 → 소스 → 빌드" 틀을 기억해 두면 처음 보는 언어의 Dockerfile도 같은 눈으로 읽을 수 있어요.'] },
       ],
     },
     {
@@ -262,7 +263,7 @@ CMD ["node", "dist/server.js"]
         { title: '출력 읽기', code: { title: 'terminal', lang: 'sh', text: '# 전\n => [internal] load build context   41.3s\n => => transferring context: 412.7MB\n# 후\n => [internal] load build context    0.1s\n => => transferring context: 2.1MB' } },
         { title: '설정 요령', list: [
           '<code>!</code>로 예외를 둘 수 있습니다. <code>*.md</code> 다음 줄에 <code>!README.md</code>를 쓰면 README만 남아요.',
-          '반대로 "필요한 것만 허용"하려면 <code>*</code>로 전부 막고 <code>!src</code>, <code>!package*.json</code>처럼 열어 주는 방식도 있습니다.', '빌드 출력의 <code>transferring context</code> 크기를 보면 컨텍스트가 큰지 바로 압니다. 수백 MB라면 대개 <code>node_modules</code>나 <code>.git</code>이 들어간 것입니다.',
+          '반대로 "필요한 것만 허용"하려면 <code>*</code>로 전부 막고 <code>!src</code>, <code>!package*.json</code>처럼 열어 주는 방식도 있습니다.', '빌드 출력의 <code>transferring context</code> 크기를 보면 컨텍스트가 큰지 바로 압니다. 수백 MB라면 대개 <code>node_modules</code>나 <code>.git</code>이 들어간 것입니다.', 'Dockerfile 옆에 <code>Dockerfile.dockerignore</code>처럼 같은 이름의 무시 파일이 있으면 그것이 우선 쓰입니다. Dockerfile이 여러 개인 저장소에서 유용합니다.',
           '이미 이미지에 들어간 비밀은 <code>.dockerignore</code>로 되돌릴 수 없습니다. 그 비밀은 폐기하고 새로 발급합니다(이미지 레이어 레슨).',
         ] },
       ],
@@ -317,6 +318,7 @@ CMD ["node", "dist/server.js"]
           '<b>스캔 소음</b>: 실행에 쓰지도 않는 패키지의 취약점이 보고서를 채워, 정말 고쳐야 할 것이 묻힙니다.',
         ] },
         { title: '더 생각해 볼 것', body: ['"빌드한 뒤 RUN에서 도구를 지우면 되지 않을까?"라고 생각할 수 있습니다. 하지만 이전 레슨에서 봤듯 지운 파일은 아래 레이어에 남아 크기가 줄지 않습니다. 그래서 아예 <b>새 탑을 쌓는</b> 방법이 필요합니다. 빌드 단계와 실행 단계를 나누면 단계마다 베이스도 따로 고를 수 있습니다.'] },
+        { title: '실무 팁', list: ['<code>npm ls --omit=dev</code>로 운영 의존성 목록을 따로 보고, 테스트 · 빌드 도구가 <code>dependencies</code>에 잘못 들어가 있지 않은지 점검합니다.', 'CI에서 이미지 크기를 기록하고 이전보다 크게 늘면 리뷰하게 하면, 무심코 커지는 것을 잡을 수 있습니다.'] },
       ],
     },
     {
@@ -344,9 +346,9 @@ CMD ["node", "dist/server.js"]
         { title: '알아 두면 좋은 기능', list: [
           '<code>docker build --target build .</code>로 중간 단계까지만 빌드할 수 있습니다. 테스트 단계를 따로 두고 CI에서 그 단계만 돌리는 식으로 씁니다.',
           'BuildKit은 마지막 단계에 필요 없는 단계는 건너뜁니다. 서로 의존하지 않는 단계는 동시에 빌드해요.',
-          '<code>COPY --from</code>에는 단계 이름뿐 아니라 다른 이미지 이름도 쓸 수 있습니다(예: 다른 이미지에서 실행 파일 하나만 가져오기).',
+          '<code>COPY --from</code>에는 단계 이름뿐 아니라 다른 이미지 이름도 쓸 수 있습니다(예: 다른 이미지에서 실행 파일 하나만 가져오기).', '빌드 단계에서 테스트를 돌리면 테스트가 실패할 때 이미지 자체가 만들어지지 않습니다. 테스트 도구는 실행 단계로 넘어오지 않게 결과물만 복사합니다.',
         ] },
-        { title: '흔한 실수', body: ['실행 단계에서 빠뜨린 파일 때문에 컨테이너가 시작하자마자 죽는 경우가 많습니다(<code>Cannot find module</code>). 빌드 결과물이 런타임에 읽는 파일(템플릿, 마이그레이션, 정적 파일)도 함께 <code>COPY --from</code> 했는지 확인하세요.'] },
+        { title: '흔한 실수', body: ['실행 단계에서 빠뜨린 파일 때문에 컨테이너가 시작하자마자 죽는 경우가 많습니다(<code>Cannot find module</code>). 빌드 결과물이 런타임에 읽는 파일(템플릿, 마이그레이션, 정적 파일)도 함께 <code>COPY --from</code> 했는지 확인하세요. 실행 단계의 베이스는 빌드 단계와 같은 계열(glibc 등)로 맞추세요. 빌드 단계에서 컴파일된 네이티브 모듈은 다른 계열에서 실행되지 않을 수 있습니다.'] },
       ],
     },
     {
@@ -373,7 +375,7 @@ CMD ["node", "dist/server.js"]
           ['distroless', '셸 없음 · 가장 작고 단단', 'info'],
         ] },
         { title: 'musl에서 생기는 일', body: [
-          '<code>bcrypt</code>, <code>sharp</code>처럼 C로 된 네이티브 모듈은 glibc용으로 미리 빌드된 바이너리를 받으려다 실패하고, 소스에서 컴파일하려고 빌드 도구를 찾기도 합니다. DNS 해석 방식 등 작은 동작 차이로 운영에서만 나는 문제도 보고됩니다. Alpine을 쓰려면 같은 Alpine 이미지에서 빌드 · 테스트까지 하세요.',
+          '<code>bcrypt</code>, <code>sharp</code>처럼 C로 된 네이티브 모듈은 glibc용으로 미리 빌드된 바이너리를 받으려다 실패하고, 소스에서 컴파일하려고 빌드 도구를 찾기도 합니다. DNS 해석 방식 등 작은 동작 차이로 운영에서만 나는 문제도 보고됩니다. Alpine을 쓰려면 같은 Alpine 이미지에서 빌드 · 테스트까지 하세요. distroless에도 glibc 기반 변형이 있어 호환성은 slim에 가깝고, 셸과 패키지 관리자가 없다는 점이 다릅니다. 팀 공통 베이스 하나를 정하고, 다른 베이스가 필요한 서비스만 이유를 남기는 방식이 관리하기 쉽습니다.',
         ] },
         { title: '셸 없는 이미지 디버깅', body: ['distroless 컨테이너에는 <code>sh</code>가 없어 <code>docker exec</code>로 들어갈 수 없습니다. 도구가 든 컨테이너를 같은 namespace에 붙여 들여다봅니다.'],
           code: { title: 'terminal', lang: 'sh', text: '$ docker run --rm -it \\\n    --pid container:api --network container:api \\\n    busybox sh\n/ # ps\n/ # wget -qO- localhost:3000/health' } },
@@ -406,7 +408,7 @@ CMD ["node", "dist/server.js"]
         { title: '출력 읽기', list: [
           '결과 표의 <b>Installed Version</b>과 <b>Fixed Version</b>을 보세요. 고친 버전이 있으면 베이스를 올리거나 패키지를 갱신하면 됩니다.',
           '<code>--ignore-unfixed</code>는 아직 고친 버전이 없는 항목을 빼서, 지금 할 수 있는 일에 집중하게 합니다.',
-          '<code>--exit-code 1</code>을 주면 기준을 넘을 때 명령이 실패해 CI가 멈춥니다.',
+          '<code>--exit-code 1</code>을 주면 기준을 넘을 때 명령이 실패해 CI가 멈춥니다.', '쓰지 않는 패키지의 취약점이라면 예외 처리보다 패키지를 지우거나 더 작은 베이스로 옮기는 편이 오래갑니다. 예외가 불가피하면 무시 목록에 CVE 번호 · 이유 · 만료일을 적어 남깁니다.',
         ] },
         { title: '실무 팁', body: [
           '스캔은 한 번이 아니라 <b>주기</b>입니다. 코드를 안 바꿔도 베이스 이미지는 패치되니, 정기적으로 <code>--pull</code>로 다시 빌드해 새 베이스를 받습니다. 스캔 · 서명 · SBOM을 파이프라인에 넣는 방법은 9장 이미지 파이프라인 레슨에서 이어집니다.',
@@ -439,7 +441,7 @@ CMD ["node", "dist/server.js"]
           '패키지 설치(<code>apt-get</code>, <code>npm ci</code>)는 root가 필요하니, <code>USER</code>는 설치가 끝난 <b>뒤쪽</b>에 둡니다.',
           '공식 이미지에 일반 사용자가 없다면 <code>RUN useradd -r -u 10001 app</code>처럼 만들고 <b>숫자 UID</b>로 지정합니다. 쿠버네티스의 <code>runAsNonRoot</code> 검사는 숫자로 확인하기 쉽습니다.',
         ] },
-        { title: '더 생각해 볼 것', body: ['이미지에서 non-root로 정해 두는 것과, 실행할 때 <code>--user</code> · <code>--cap-drop</code>을 거는 것은 서로를 보완합니다. 앞 레슨(컨테이너 vs VM)의 실행 옵션과 함께 쓰세요.'] },
+        { title: '더 생각해 볼 것', body: ['이미지에서 non-root로 정해 두는 것과, 실행할 때 <code>--user</code> · <code>--cap-drop</code>을 거는 것은 서로를 보완합니다. 앞 레슨(컨테이너 vs VM)의 실행 옵션과 함께 쓰세요. 쿠버네티스에서는 <code>runAsNonRoot: true</code>가 root로 시작하려는 컨테이너를 막고, 디버깅 때 root가 필요하면 <code>docker exec -u 0 api sh</code>처럼 그때만 root로 들어갑니다. 이미지 기본값을 root로 되돌릴 이유는 아닙니다.'] },
       ],
     },
     {
@@ -462,7 +464,7 @@ CMD ["node", "dist/server.js"]
           '컨테이너의 PID 1은 특별합니다. 커널은 PID 1이 <b>직접 처리기를 등록하지 않은 신호</b>를 무시합니다. 그래서 exec 형식으로 node가 PID 1이 돼도, 코드에 SIGTERM 처리가 없으면 여전히 10초를 기다립니다. 처리기를 두거나 <code>docker run --init</code>(작은 init이 PID 1이 되어 신호를 전달)을 씁니다.',
         ] },
         { title: '앱 쪽 처리 예시', code: { title: 'server.js', lang: 'text', text: 'process.on(\'SIGTERM\', () => {\n  // 새 연결은 받지 않고, 처리 중인 요청은 마친다\n  server.close(() => process.exit(0));\n});' } },
-        { title: '실무 팁', list: ['정상 처리되면 <code>docker stop</code>이 1초 안팎에 끝나고 종료 코드는 0(또는 SIGTERM에 의한 143)입니다.', '정리에 10초보다 오래 걸리는 앱은 <code>docker stop -t 30</code>처럼 유예 시간을 늘립니다. 쿠버네티스의 롤링 업데이트에서도 똑같이 중요합니다(7장).'] },
+        { title: '실무 팁', list: ['정상 처리되면 <code>docker stop</code>이 1초 안팎에 끝나고 종료 코드는 0(또는 SIGTERM에 의한 143)입니다.', '정리에 10초보다 오래 걸리는 앱은 <code>docker stop -t 30</code>처럼 유예 시간을 늘립니다. 쿠버네티스의 롤링 업데이트에서도 똑같이 중요합니다(7장).', '로드밸런서 뒤의 앱이라면 SIGTERM을 받은 직후 헬스 체크를 실패로 바꿔 새 요청이 오지 않게 하고, 진행 중인 요청을 마친 뒤 끝내는 순서가 안전합니다. 배치 작업은 현재 단위 작업을 마치고 진행 위치를 남긴 뒤 끝나게 합니다.'] },
       ],
     },
     {
