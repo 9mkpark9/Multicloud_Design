@@ -224,7 +224,7 @@ code {
 
 .stage-body { flex: 1; min-height: 0; display: flex; }
 .scene-wrap { flex: 1; min-width: 0; position: relative; }
-.scene-host { position: absolute; inset: 0; }
+.scene-host { position: absolute; inset: 0; overflow: hidden; contain: strict; }
 .scene-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 62%, var(--paper-2) 100%); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 13px 9px; font-size: 10.500px; color: var(--ink-2); min-height: 30px; }
 .lg { display: flex; align-items: center; gap: 6px; }
