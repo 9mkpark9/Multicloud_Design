@@ -27,7 +27,7 @@ export default {
       cm: { at: [-0.4, -1.1], label: '컨트롤러\n매니저', icon: 'refresh', color: 'red' },
       etcd: { kind: 'cyl', at: [-0.4, -3.5], label: 'etcd', icon: 'database', color: 'purple' },
       sched: { at: [2.1, -3.5], label: '스케줄러', sub: 'scheduler', icon: 'signpost', color: 'red' },
-      hook: { at: [4.5, -2.6], label: '어드미션\n웹훅', icon: 'shield', color: 'orange' },
+      hook: { at: [2.1, 1.3], label: '어드미션\n웹훅', icon: 'shield', color: 'orange' },
       kl1: { kind: 'tile', at: [1.3, 1.2], label: 'kubelet', icon: 'heart-pulse', color: 'slate' },
       rt1: { kind: 'tile', at: [5.0, 1.3], label: 'containerd', icon: 'container', color: 'slate' },
       px1: { kind: 'tile', at: [4.6, 3.9], label: 'kube-proxy', icon: 'shuffle', color: 'slate' },
@@ -277,6 +277,7 @@ Snapshot saved at /backup/etcd.db`,
         '받은 내용은 각자 메모리 캐시에 두고 읽습니다. 그래서 수천 개의 Pod가 있어도 API 서버와 etcd의 부담이 크지 않고, 누가 무엇을 쓰면 관심 있는 부품이 곧바로 알아챕니다.',
       ],
       callout: { type: 'key', text: '부품끼리 직접 호출하지 않아도 일이 이어지는 비결입니다. 한쪽은 API 서버에 <b>쓰고</b>, 다른 쪽은 그것을 <b>지켜보다</b> 이어받습니다.' },
+      hide: ['etcd'],
       show: ['sched', 'cm', 'w1', 'kl1', 'w2', 'kl2'],
       tags: [
         { on: 'sched', text: '새 Pod 감시', icon: 'eye', pos: 'right' },
@@ -430,6 +431,7 @@ kube-scheduler            cp-1_a91d…`,
       ],
       callout: { type: 'warn', text: '그래서 손으로 고친 값도, YAML에 적힌 필드라면 다음 <code>apply</code>가 YAML대로 되돌립니다. 진실은 저장소의 YAML에 두세요.' },
       hide: ['cp', 'sched', 'w1', 'kl1', 'w2', 'kl2', 'p1', 'p2', 'p3'],
+      show: ['etcd'],
       focus: ['cm'],
       tags: [{ on: 'cm', text: '관찰 → 비교 → 조치', icon: 'repeat', pos: 'left' }],
       flows: [{ path: ['api', 'cm'], kind: 'ctrl', n: 3, gap: 1.2 }, { path: ['cm', 'api'], kind: 'ctrl', n: 3, gap: 1.2, delay: 0.6 }],
@@ -604,23 +606,21 @@ worker-2   worker-2   30d`,
       hide: ['cp', 'etcd', 'cm', 'sched', 'w1', 'p1'],
       set: { p1: { state: null }, p2: { state: null } },
       code: {
-        title: '터미널 (요약)', lang: 'sh', hl: [1, 4, 7, 9, 12],
-        text: `$ kubectl describe pod api-5f6d8c7b9-2xkqp
-Node:           worker-1/10.0.1.11
-Status:         Running
-Controlled By:  ReplicaSet/api-5f6d8c7b9
+        title: '터미널 (요약)', lang: 'sh', hl: [1, 6, 7, 10],
+        text: `$ kubectl describe pod api-…-2xkqp
+Node:     worker-1/10.0.1.11
+Status:   Running
 Events:
-  Reason     From               Message
-  Scheduled  default-scheduler  assigned to
-                                worker-1
-  Pulling    kubelet            shop/api:1.4
-  Pulled     kubelet            in 2.1s
-  Created    kubelet            container api
-  Started    kubelet            container api`,
+  Type    Reason     From
+  Normal  Scheduled  default-scheduler
+  Normal  Pulling    kubelet
+  Normal  Pulled     kubelet
+  Normal  Created    kubelet
+  Normal  Started    kubelet`,
       },
       tags: [
         { on: 'api', text: 'Event 기록', icon: 'list', pos: 'bottom' },
-        { on: 'kl1', text: 'Pulling → Started', pos: 'left' },
+        { on: 'kl1', text: 'Pulling → Started', pos: 'top' },
       ],
       flows: [
         { path: ['kl1', 'api'], kind: 'res', n: 2 },
@@ -731,20 +731,21 @@ Conditions:
       show: ['dev', 'hook'],
       set: { kl2: { state: null, badge: null }, q1: { state: null }, p3: { state: null }, hook: { state: 'down' } },
       code: {
-        title: '터미널', lang: 'sh', hl: [3, 4, 5],
+        title: '터미널', lang: 'sh', hl: [3, 4, 5, 9],
         text: `$ kubectl apply -f api.yaml
 Error from server (InternalError):
-  Internal error occurred: failed
-  calling webhook "validate.policy.io":
-  Post "https://policy-svc.policy.svc
-  :443/validate": connection refused
+Internal error occurred: failed
+calling webhook "validate.policy.io":
+Post "https://policy-svc.policy.svc
+:443/validate": connection refused
 
 $ kubectl get pods -n policy
 No resources found in policy namespace.
 
-$ kubectl get validatingwebhookconfigurations
-NAME            WEBHOOKS   AGE
-policy-config   1          90d`,
+$ kubectl get \\
+    validatingwebhookconfigurations
+NAME           WEBHOOKS  AGE
+policy-config  1         90d`,
       },
       tags: [{ on: 'hook', text: '응답 없음', tone: 'bad', pos: 'bottom' }],
       flows: [

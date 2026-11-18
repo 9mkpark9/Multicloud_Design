@@ -22,7 +22,7 @@ export default {
       repo: { at: [1.6, 1], label: 'main', sub: 'GitHub 저장소', icon: 'git', color: 'slate' },
       team: { kind: 'users', at: [5.4, 2], label: '팀 전체' },
       runner: { at: [3.2, -0.6], label: 'CI 러너', sub: '일회용 VM', icon: 'bot', color: 'teal' },
-      cron: { kind: 'tile', size: 's', at: [-0.4, -1.2], label: 'schedule', icon: 'calendar', color: 'yellow' },
+      cron: { kind: 'tile', size: 's', at: [-0.4, -2.0], label: 'schedule', icon: 'calendar', color: 'yellow' },
       jobL: { at: [4.0, 2.0], size: 's', label: 'lint', sub: 'job', icon: 'search', color: 'yellow' },
       jobT: { at: [4.0, -0.4], size: 's', label: 'test', sub: 'job', icon: 'flask', color: 'teal' },
       jobB: { at: [6.4, 0.8], size: 's', label: 'build', sub: 'job', icon: 'hammer', color: 'blue' },
@@ -31,8 +31,8 @@ export default {
       build: { kind: 'tile', size: 's', at: [4.85, -2.25], label: '빌드', icon: 'hammer', color: 'blue' },
       registry: { kind: 'cyl', at: [3.2, -3.2], label: 'npm 레지스트리', icon: 'package', color: 'gray' },
       cache: { kind: 'cyl', at: [6.2, -0.2], label: '캐시', icon: 'archive', color: 'green' },
-      sec: { kind: 'tile', at: [1.0, -2.2], label: 'Secrets', icon: 'key', color: 'purple' },
-      env: { at: [6.0, -1.8], label: 'production', sub: '환경 · 승인 필요', icon: 'shield-check', color: 'red' },
+      sec: { kind: 'tile', at: [-0.4, -2.0], label: 'Secrets', icon: 'key', color: 'purple' },
+      env: { at: [6.0, -1.8], label: 'production', sub: '배포 환경', icon: 'shield-check', color: 'red' },
       pyU: { kind: 'tile', size: 'l', at: [6.0, -1.0], icon: 'flask', color: 'green' },
       pyI: { kind: 'tile', size: 'm', at: [6.0, -1.0], z: 16, icon: 'link', color: 'yellow' },
       pyE: { kind: 'tile', size: 's', at: [6.0, -1.0], z: 32, icon: 'monitor', color: 'red' },
@@ -249,7 +249,7 @@ concurrency:
       hide: ['devB', 'team'],
       show: ['cron'],
       code: { ref: 'on', hl: [2, 3, 4, 5, 7, 8, 10, 11, 12] },
-      tags: [{ on: 'repo', text: 'push · PR', tone: 'accent' }, { on: 'cron', text: '매일 03:00 KST', pos: 'bottom' }],
+      tags: [{ on: 'repo', text: 'push · PR', tone: 'accent', pos: 'bottom' }, { on: 'cron', text: '매일 03:00 KST' }],
       flows: [
         { path: ['devA', 'repo'], kind: 'build' },
         { path: ['cron', 'repo'], kind: 'ctrl', delay: 0.6 },
@@ -414,7 +414,7 @@ concurrency:
       show: ['devA', 'sec', 'env'],
       tags: [
         { on: 'devA', text: 'fork PR', tone: 'warn', icon: 'git-fork' },
-        { on: 'sec', text: '로그엔 ***', icon: 'eye', pos: 'bottom' },
+        { on: 'sec', text: '로그엔 ***', icon: 'eye' },
         { on: 'env', text: '승인 1명 필요', tone: 'warn', icon: 'user-check', pos: 'bottom' },
       ],
       flows: [
@@ -481,9 +481,9 @@ concurrency:
       show: ['pyU', 'pyI', 'pyE'],
       set: { repo: { badge: null } },
       tags: [
-        { on: 'pyE', text: 'E2E · 10개 · 8분', tone: 'bad', pos: 'right' },
+        { on: 'pyE', text: 'E2E · 10개 · 8분', tone: 'bad', pos: 'top' },
         { on: 'pyI', text: '통합 · 150개 · 1분', tone: 'warn', pos: 'right' },
-        { on: 'pyU', text: '단위 · 2,000개 · 40초', tone: 'ok', pos: 'right' },
+        { on: 'pyU', text: '단위 · 2,000개 · 40초', tone: 'ok', pos: 'bottom' },
       ],
       flows: [{ path: ['runner', 'pyU'], kind: 'ctrl', n: 3, gap: 0.5 }],
       more: [

@@ -201,7 +201,7 @@ http_requests_total{code="200"} 18231
 http_requests_total{code="500"} 42
 # TYPE inflight_requests gauge
 inflight_requests 7
-# TYPE http_request_duration_seconds histogram
+# TYPE ..._duration_seconds histogram
 ..._seconds_bucket{le="0.1"} 15022
 ..._seconds_bucket{le="0.5"} 17890
 ..._seconds_bucket{le="1"} 18010
@@ -245,6 +245,7 @@ rate(http_request_duration_seconds_sum[5m])
           'Pod별 p99를 먼저 구한 뒤 평균 내기. 백분위수는 평균 낼 수 없습니다. <b>버킷을 합친 뒤</b> 한 번만 계산하세요.',
           'counter에 <code>rate</code> 없이 <code>sum</code>만 씌우기. 재시작 때마다 그래프가 절벽처럼 떨어집니다.',
           '대시보드 질의를 너무 긴 구간(<code>[1h]</code>)으로 잡아 장애가 그래프에 늦게 나타나는 것.',
+          '레이블 이름을 잘못 적어도 PromQL은 오류 없이 <b>빈 결과</b>를 돌려줍니다. 그래프가 비면 먼저 Explore 화면에서 레이블 이름과 값을 확인하세요.',
         ] },
       ],
       hide: ['pay'],
@@ -259,8 +260,8 @@ sum(rate(
 # p99 응답 시간 (히스토그램에서 계산)
 histogram_quantile(0.99,
  sum by (le) (rate(
- http_request_duration_seconds_bucket[5m]
- )))`,
+http_request_duration_seconds_bucket[5m]
+)))`,
       },
       tags: [{ on: 'graf', text: '결제 API p99 4.1초', tone: 'bad' }],
       flows: [{ path: ['eng', 'graf', 'prom'], kind: 'ctrl' }, { path: ['prom', 'graf', 'eng'], kind: 'data', delay: 1.6 }],
@@ -295,8 +296,7 @@ histogram_quantile(0.99,
       ],
       hide: ['eng'],
       show: ['pay', 'db'],
-      panel: { title: '무엇을 무엇으로 보나', icon: 'gauge', rows: [['서비스 · RED', '요청 수 · 에러율 · 응답 시간', 'info'], ['자원 · USE', '사용률 · 포화 · 오류', 'accent'], ['결제 API', 'Duration p99 4.1초', 'bad'], ['DB 커넥션 풀', '포화: 대기 120건', 'bad']] },
-      tags: [{ on: 'pay', text: 'RED: 느림', tone: 'bad' }, { on: 'db', text: 'USE: 포화', tone: 'bad', pos: 'right' }],
+      tags: [{ on: 'pay', text: 'RED: p99 4.1초', tone: 'bad' }, { on: 'db', text: 'USE: 풀 대기 120', tone: 'bad', pos: 'right' }, { on: 'graf', text: '증상 → 원인 순서로', pos: 'right' }],
       flows: [{ path: ['prom', 'pay'], kind: 'ctrl' }, { path: ['prom', 'db'], kind: 'ctrl', delay: 0.3 }, { path: ['prom', 'graf'], kind: 'data', delay: 1.3 }],
       metrics: { find: '20분' },
       changes: [['+', '서비스 RED 행'], ['+', '자원 USE 행'], ['~', '의심 구간: DB 쪽']],
@@ -331,8 +331,10 @@ sort_desc(scrape_samples_scraped)` } },
           '전체 URL(<code>/orders/8812</code>)을 레이블로 쓰기. 경로 템플릿(<code>/orders/:id</code>)으로 바꿔야 합니다.',
           '에러 메시지 원문을 레이블에 넣기. 메시지가 조금만 달라도 새 시계열이 생겨요.',
           '"고객별 지표"가 정말 필요하면 메트릭이 아니라 로그 집계나 분석용 저장소에서 계산합니다.',
+          '배포 전 리뷰에서 <b>새 레이블의 값이 몇 종류까지 늘 수 있나</b>를 묻는 것만으로 대부분 막을 수 있습니다.',
         ] },
       ],
+      hide: ['db', 'graf'],
       show: ['web'],
       set: { prom: { state: 'hot', badge: '메모리 부족', tone: 'bad' } },
       focus: ['prom'],
@@ -373,7 +375,7 @@ sum by (app) (
         ] },
       ],
       hide: ['e_sw', 'e_sp', 'e_sd'],
-      show: ['db', 'loki'],
+      show: ['db', 'loki', 'graf'],
       set: { prom: { state: 'dim', badge: null } },
       focus: ['loki'],
       tags: [{ on: 'pay', text: 'ERROR db timeout', tone: 'bad' }, { on: 'loki', text: '레이블만 색인', pos: 'right' }],
@@ -462,6 +464,7 @@ inhibit_rules:
           '위 시간 값은 Alertmanager의 기본값과 같습니다. 묶음이 너무 크면 <code>group_by</code>에 레이블을 더해 쪼개세요.',
           '점검 중에는 규칙을 지우지 말고 <b>silence</b>(기간을 정한 음소거)를 겁니다. 끝나면 저절로 풀려요.',
           '<code>promtool check rules</code>로 규칙 문법을 CI에서 검사하고, <code>promtool test rules</code>로 "이 데이터면 알림이 울린다"를 테스트할 수 있습니다.',
+          'Alertmanager가 하나뿐이면 그것이 죽는 순간 모든 알림이 끊깁니다. 여러 대로 클러스터를 묶고, "알림 경로가 살아 있다"를 외부에서 확인하는 항상 울리는 알림(watchdog)을 두는 팀이 많아요.',
         ] },
       ],
       hide: ['users', 'web', 'pay', 'db', 'otel', 'graf'],
@@ -469,22 +472,23 @@ inhibit_rules:
       set: { prom: { state: null } },
       focus: ['am'],
       code: {
-        title: 'rules/payment.yml', lang: 'yaml', hl: [5, 8, 9, 10],
+        title: 'rules/payment.yml', lang: 'yaml', hl: [5, 10, 11, 13],
         text: `groups:
 - name: payment
   rules:
   - alert: PaymentHighErrorRate
     expr: |
-      sum(rate(http_requests_total{app="pay",
-        code=~"5.."}[5m]))
-      / sum(rate(http_requests_total{app="pay"}[5m]))
+      sum(rate(http_requests_total{
+        app="pay", code=~"5.."}[5m]))
+      / sum(rate(http_requests_total{
+        app="pay"}[5m]))
       > 0.05
     for: 10m
     labels:
       severity: page
     annotations:
       summary: 결제 5xx 에러율 5% 초과
-      runbook_url: https://wiki.example/pay-5xx`,
+      runbook_url: https://wiki/rb/pay`,
       },
       tags: [{ on: 'am', text: '묶기 · 라우팅', icon: 'split', pos: 'left' }],
       flows: [{ path: ['prom', 'am'], kind: 'ctrl' }, { path: ['am', 'oncall'], kind: 'ctrl', delay: 1.2 }],
@@ -568,11 +572,11 @@ inhibit_rules:
         { title: '계산해 보기', body: [
           '30일은 720시간입니다. 번 레이트 14.4로 1시간을 태우면 14.4 ÷ 720 = 버짓의 2%, 이 속도가 계속되면 720 ÷ 14.4 = 50시간 만에 버짓이 바닥나요. 번 레이트 6으로 6시간이면 6 × 6 ÷ 720 = 5%, 번 레이트 1로 3일이면 72 ÷ 720 = 10%입니다. Google SRE 워크북이 권하는 기본 조합이 바로 이 세 줄이에요.',
         ] },
-        { title: '설정 예시: recording rule', body: ['창마다 에러 비율을 미리 계산해 두면 알림 규칙이 짧아지고 평가도 가벼워집니다.'], code: { title: 'rules/slo-pay.yml', lang: 'yaml', text: `- record: job:pay_errors:ratio_rate5m
+        { title: '설정 예시: recording rule', body: ['창마다 에러 비율을 미리 계산해 두면 알림 규칙이 짧아지고 평가도 가벼워집니다.'], code: { title: 'rules/slo-pay.yml', lang: 'yaml', text: `- record: job:pay_err:ratio5m
   expr: |
     sum(rate(http_requests_total{app="pay",code=~"5.."}[5m]))
     / sum(rate(http_requests_total{app="pay"}[5m]))
-- record: job:pay_errors:ratio_rate1h
+- record: job:pay_err:ratio1h
   expr: |
     sum(rate(http_requests_total{app="pay",code=~"5.."}[1h]))
     / sum(rate(http_requests_total{app="pay"}[1h]))
@@ -582,6 +586,7 @@ inhibit_rules:
           '<b>짧은 창</b>(5분)이 함께 넘어야 한다는 조건이 "지금도 타고 있다"를 보장합니다. 회복되면 알림이 곧 풀려요.',
           '짧은 창만 쓰면 순간적인 튐에도 울립니다. 둘을 <code>and</code>로 묶어 서로의 약점을 덮습니다.',
           '트래픽이 아주 적은 서비스는 요청 몇 건의 실패로도 비율이 크게 튑니다. 최소 요청 수 조건을 함께 거세요.',
+          '배수와 창은 출발점일 뿐입니다. 몇 주 운영하며 "놓친 장애"와 "헛울린 알림"을 세어 조정하세요.',
         ] },
       ],
       hide: ['pay'],
@@ -590,23 +595,23 @@ inhibit_rules:
       code: {
         title: 'rules/slo-alerts.yml', lang: 'yaml', hl: [3, 4, 5, 6],
         text: `# SLO 99.9% → 허용 에러 비율 0.001
-- alert: PayBudgetFastBurn   # 1시간에 2%
+- alert: PayFastBurn  # 1시간에 2%
   expr: |
-    job:pay_errors:ratio_rate1h > 14.4 * 0.001
+    job:pay_err:ratio1h > 14.4 * 0.001
     and
-    job:pay_errors:ratio_rate5m > 14.4 * 0.001
+    job:pay_err:ratio5m > 14.4 * 0.001
   labels: { severity: page }
-- alert: PayBudgetSlowBurn   # 6시간에 5%
+- alert: PaySlowBurn  # 6시간에 5%
   expr: |
-    job:pay_errors:ratio_rate6h > 6 * 0.001
+    job:pay_err:ratio6h > 6 * 0.001
     and
-    job:pay_errors:ratio_rate30m > 6 * 0.001
+    job:pay_err:ratio30m > 6 * 0.001
   labels: { severity: page }
-- alert: PayBudgetTicket     # 3일에 10%
+- alert: PayTicket    # 3일에 10%
   expr: |
-    job:pay_errors:ratio_rate3d > 1 * 0.001
+    job:pay_err:ratio3d > 1 * 0.001
     and
-    job:pay_errors:ratio_rate6h > 1 * 0.001
+    job:pay_err:ratio6h > 1 * 0.001
   labels: { severity: ticket }`,
       },
       tags: [{ on: 'oncall', text: '울리면 진짜 장애', tone: 'ok', pos: 'right' }],
