@@ -18,7 +18,7 @@ export default {
     zones: {
       proj: { at: [0, -1.6], size: [5.4, 3.6], label: 'shop-dev (프로젝트)', color: 'gcp' },
       gvpc: { at: [0, -1.8], size: [7.8, 3.9], label: 'VPC shop-vpc (글로벌)', color: 'purple' },
-      sn_kr: { at: [0.4, -1.4], size: [3.4, 3], label: 'asia-northeast3 (서울)', color: 'teal' },
+      sn_kr: { at: [0.4, -1.4], size: [3.4, 3], label: 'asia-northeast3 서울', color: 'teal' },
       sn_us: { at: [4, -1.4], size: [3.4, 3], label: 'us-central1 (아이오와)', color: 'blue' },
     },
     nodes: {
@@ -176,7 +176,7 @@ export default {
       hide: ['g_ce', 'g_run', 'g_mon', 'g_gcs', 'g_sql'],
       focus: ['g_gke', 'g_bq'],
       tags: [
-        { on: 'g_gke', text: 'Autopilot: 노드까지 관리', pos: 'left', icon: 'helm' },
+        { on: 'g_gke', text: 'Autopilot: 노드 위임', pos: 'left', icon: 'helm' },
         { on: 'g_bq', text: '서버 없는 웨어하우스', pos: 'right', icon: 'chart-bar' },
         { on: 'g_bq', text: '읽은 데이터만큼 과금', pos: 'bottom', tone: 'warn', icon: 'coins' },
       ],

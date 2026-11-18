@@ -22,7 +22,7 @@ export default {
       argo: { at: [0, 0], label: 'Argo CD', sub: '관리 클러스터', icon: 'refresh', color: 'navy' },
       users: { kind: 'users', at: [-2.4, 1.2], label: '사용자' },
       glb: { at: [0, 0], label: 'GSLB', sub: '글로벌 입구', icon: 'compass', color: 'purple' },
-      mgmt: { at: [0, 0], label: '관리 계층', sub: '생성 · 업그레이드', icon: 'settings', color: 'olive' },
+      mgmt: { at: [0, 0], label: '관리 계층', sub: '생성·업그레이드', icon: 'settings', color: 'olive' },
       eks: { at: [0.8, 4.4], size: 's', label: 'EKS', sub: 'AWS', icon: 'helm', color: 'aws' },
       aks: { at: [2, 3.2], size: 's', label: 'AKS', sub: 'Azure', icon: 'helm', color: 'azure' },
       gke: { at: [3.2, 2], size: 's', label: 'GKE', sub: 'GCP', icon: 'helm', color: 'gcp' },
@@ -141,7 +141,7 @@ spec:
         '그래서 멀티클라우드에서 Kubernetes는 <b>공통 층</b>이 됩니다. VM, 네트워크, 디스크 같은 클라우드별 차이는 클러스터 아래로 내려가고, 앱 팀은 그 위에서 한 가지 방식으로 일합니다.',
       ],
       callout: { type: 'warn', text: '"같다"는 것은 API까지입니다. 스토리지, 로드 밸런서, 권한 연동처럼 <b>클라우드와 맞닿는 부분</b>은 다릅니다. 곧 부딪힙니다.' },
-      tags: [{ on: 'dev', text: '같은 YAML · 같은 kubectl', icon: 'file-code' }],
+      tags: [{ on: 'dev', text: '같은 YAML · kubectl', icon: 'file-code' }],
       flows: [
         { path: ['dev', 'eks'], kind: 'ctrl' }, { path: ['dev', 'aks'], kind: 'ctrl', delay: 0.2 },
         { path: ['dev', 'gke'], kind: 'ctrl', delay: 0.4 }, { path: ['dev', 'nks'], kind: 'ctrl', delay: 0.6 },

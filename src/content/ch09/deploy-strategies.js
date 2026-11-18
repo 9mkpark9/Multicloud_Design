@@ -76,7 +76,7 @@ export default {
         p1: { state: null, label: 'v2', color: 'green' }, p2: { state: null, label: 'v2', color: 'green' },
         p3: { state: 'dim', label: 'v2', color: 'green', badge: '준비 중' }, p4: { state: null },
       },
-      tags: [{ on: 'p2', text: '교체 완료', tone: 'ok', pos: 'right' }, { on: 'p4', text: '다음 차례', pos: 'right' }],
+      tags: [{ on: 'p2', text: '교체 완료', tone: 'ok', pos: 'right' }, { on: 'p4', text: '다음 차례', pos: 'bottom' }],
       flows: [
         { path: ['users', 'lb'], kind: 'req', n: 3 },
         { path: ['lb', 'p1'], kind: 'data', delay: 1 },

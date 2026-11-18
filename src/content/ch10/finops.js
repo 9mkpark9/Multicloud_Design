@@ -114,7 +114,7 @@ export default {
       show: ['budget'],
       set: { bill: { badge: '930만 원', tone: 'warn' } },
       focus: ['budget'],
-      tags: [{ on: 'budget', text: '예산의 80% 도달', tone: 'warn', pos: 'left' }],
+      tags: [{ on: 'budget', text: '예산의 80% 도달', tone: 'warn' }],
       flows: [{ path: ['bill', 'budget', 'lead'], kind: 'ctrl', n: 2 }, { path: ['vm1', 'bill'], kind: 'data', delay: 0.5 }, { path: ['vm2', 'bill'], kind: 'data', delay: 0.7 }],
       metrics: { bill: '930만 원', untag: ['0%', 'ok'] },
       changes: [['-', '잊힌 GPU VM 삭제 (−310만 원)'], ['+', '팀별 예산과 알림'], ['~', '태그 없는 비용 34% → 0%']],

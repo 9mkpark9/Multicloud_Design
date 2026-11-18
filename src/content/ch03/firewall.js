@@ -1,0 +1,276 @@
+export default {
+  id: 'firewall',
+  learn: [
+    '라우팅과 방화벽이 하는 일의 차이',
+    '보안 그룹: 서버 단위 · 허용만 · stateful',
+    '보안 그룹이 보안 그룹을 참조하는 패턴',
+    'NACL: 서브넷 단위 · 번호 순서 · stateless',
+    '최소 개방 원칙과 흔한 실수 두 가지',
+    '4대 클라우드의 방화벽 이름과 차이',
+  ],
+  legend: [['req', '요청'], ['res', '응답'], ['ctrl', '관리 접속'], ['bad', '공격 · 차단']],
+  metrics: [
+    { id: 'ports', label: '열린 포트', icon: 'unlock' },
+    { id: 'dbsrc', label: 'DB 접근 허용', icon: 'database' },
+    { id: 'layers', label: '방화벽 겹', icon: 'shield' },
+    { id: 'svc', label: '고객 응답', icon: 'activity' },
+  ],
+  scene: {
+    zones: {
+      vpc: { at: [1.0, -2.9], size: [5.4, 7.7], label: 'VPC 10.0.0.0/16', color: 'purple' },
+      pub: { at: [2.8, 0.0], size: [3.6, 4.2], label: '퍼블릭 서브넷', color: 'green' },
+      priv: { at: [1.6, -2.6], size: [4.8, 2.4], label: '프라이빗 서브넷', color: 'blue' },
+    },
+    nodes: {
+      users: { kind: 'users', at: [-0.4, 3.0], label: '고객' },
+      scan: { kind: 'client', at: [5.0, 6.0], label: '스캐너 봇' },
+      admin: { kind: 'client', at: [-0.8, -0.8], label: '개발자' },
+      nacl: { kind: 'tile', at: [1.9, 2.1], label: 'NACL', icon: 'list', color: 'orange' },
+      web: { at: [4.1, 2.1], label: '웹 서버', sub: 'EC2', icon: 'server', color: 'blue' },
+      web2: { at: [5.6, 0.6], label: '웹 서버 2', sub: 'EC2', icon: 'server', color: 'blue' },
+      db: { kind: 'cyl', at: [5.0, -1.8], label: 'DB', icon: 'database', color: 'purple' },
+      aws: { at: [3.6, -1.5], label: 'AWS', sub: 'SG + NACL', icon: 'cloud', color: 'aws' },
+      azure: { at: [6.2, -1.5], label: 'Azure', sub: 'NSG', icon: 'cloud', color: 'azure' },
+      gcp: { at: [3.6, 1.1], label: 'GCP', sub: '방화벽 규칙', icon: 'cloud', color: 'gcp' },
+      ncp: { at: [6.2, 1.1], label: 'NCP', sub: 'ACG + NACL', icon: 'cloud', color: 'ncp' },
+    },
+    edges: {
+      e_users_web: { from: 'users', to: 'web', bi: true },
+      e_scan_web: { from: 'scan', to: 'web', tone: 'bad' },
+      e_admin_web: { from: 'admin', to: 'web', style: 'dashed', label: '22', off: true },
+      e_web_db: { from: 'web', to: 'db' },
+      e_web2_db: { from: 'web2', to: 'db' },
+      e_users_nacl: { from: 'users', to: 'nacl', bi: true, off: true },
+      e_scan_nacl: { from: 'scan', to: 'nacl', tone: 'bad', off: true },
+      e_nacl_web: { from: 'nacl', to: 'web', bi: true, off: true },
+    },
+  },
+  steps: [
+    {
+      key: '문지기 없음', kind: 'problem', title: '경로가 열렸다고 다 들어와도 될까',
+      body: [
+        '지난 레슨에서 웹 서버를 퍼블릭 서브넷에 두고 IGW 경로를 냈습니다. 이제 인터넷에서 웹 서버로 <b>닿을 수는</b> 있습니다. 그런데 라우팅은 "어디로 가는가"만 정할 뿐, <b>누가 어느 포트로</b> 들어오는지는 따지지 않습니다.',
+        '서버에는 웹(<code>443</code>)만 떠 있는 게 아닙니다. SSH(<code>22</code>), 개발용 관리 페이지(<code>8080</code>)도 있죠. 문지기가 없다면 고객과 스캐너 봇이 모든 포트에 똑같이 닿습니다.',
+      ],
+      callout: { type: 'key', text: '실제 AWS에서는 문지기 없는 서버를 만들 수 없습니다. 모든 인스턴스에 <b>보안 그룹</b>이 최소 하나 붙기 때문이에요. 이 레슨은 그 문지기를 제대로 세우는 법입니다.' },
+      show: ['vpc', 'pub', 'priv', 'users', 'scan', 'web', 'db'],
+      set: { web: { state: 'hot' } },
+      tags: [{ on: 'web', text: '22 · 443 · 8080 열림', tone: 'bad', icon: 'unlock', pos: 'bottom' }],
+      flows: [
+        { path: ['users', 'web'], kind: 'req', n: 2 }, { path: ['web', 'users'], kind: 'res', n: 2, delay: 1.4 },
+        { path: ['scan', 'web'], kind: 'bad', n: 3, gap: 0.3, delay: 0.4 },
+      ],
+      metrics: { ports: ['전부', 'bad'], dbsrc: ['VPC 전체', 'warn'], layers: ['0겹', 'bad'], svc: ['정상', 'ok'] },
+    },
+    {
+      key: '보안 그룹', kind: 'concept', title: '보안 그룹: 서버마다 붙는 문지기',
+      body: [
+        '<b>보안 그룹</b>(Security Group, SG)은 인스턴스의 네트워크 인터페이스(ENI)에 붙는 가상 방화벽입니다. 규칙은 <b>허용만</b> 쓸 수 있고, 목록에 없는 트래픽은 모두 버려집니다. 새 SG는 인바운드가 비어 있고 아웃바운드는 전부 열려 있습니다.',
+        '웹 서버용 <code>sg-web</code>에 "<code>443</code>, 출발지 <code>0.0.0.0/0</code>" 한 줄만 넣습니다. 고객의 HTTPS는 들어오고, 22번을 두드리던 스캐너의 패킷은 대답 없이 사라집니다.',
+      ],
+      callout: { type: 'tip', text: '규칙은 <b>포트 + 프로토콜 + 출발지</b>로 씁니다. 출발지를 좁힐수록 안전합니다. 필요한 것만 여는 <b>최소 개방 원칙</b>이에요.' },
+      set: { web: { state: null, badge: 'sg-web', tone: 'info' } },
+      focus: ['web'],
+      panel: {
+        title: 'sg-web 규칙', icon: 'shield',
+        rows: [
+          ['인바운드 · TCP 443', '0.0.0.0/0', 'ok'],
+          ['인바운드 · 그 외', '규칙 없음 = 거부', 'mute'],
+          ['아웃바운드 · 전체', '0.0.0.0/0 (기본값)', 'info'],
+        ],
+      },
+      tags: [{ on: 'scan', text: '대답 없음', tone: 'mute', icon: 'ban', pos: 'bottom' }],
+      flows: [
+        { path: ['users', 'web'], kind: 'req', n: 2 }, { path: ['web', 'users'], kind: 'res', n: 2, delay: 1.4 },
+        { path: ['scan', 'web'], kind: 'bad', n: 3, gap: 0.3, delay: 0.4 },
+      ],
+      metrics: { ports: ['443만', 'ok'], layers: ['1겹 (SG)', 'warn'] },
+      changes: [['+', 'sg-web: TCP 443 허용'], ['-', '22 · 8080의 인터넷 노출']],
+    },
+    {
+      key: '상태 저장', kind: 'concept', title: '상태 저장: 응답 길은 따로 안 엽니다',
+      body: [
+        'SG는 <b>stateful</b>입니다. 들어온 연결을 기억해 두었다가, 그 연결의 <b>응답</b>은 아웃바운드 규칙과 상관없이 내보냅니다. 거꾸로 서버가 먼저 시작한 연결(패치 다운로드 등)의 응답도 인바운드 규칙 없이 들어옵니다.',
+        '그래서 SG에는 "누가 <b>먼저</b> 연결을 시작할 수 있는가"만 적으면 됩니다. 고객에게 응답을 보내려고 아웃바운드 규칙을 따로 만들 필요가 없어요.',
+      ],
+      callout: { type: 'warn', text: '아웃바운드 규칙을 모두 지워도 고객 응답은 나갑니다. 대신 서버가 먼저 밖으로 나가는 연결(OS 패치, 외부 API 호출)이 막힙니다. 아웃바운드를 좁힐 때는 이것부터 확인하세요.' },
+      hide: ['scan'],
+      tags: [{ on: 'web', text: '응답은 자동 통과', tone: 'ok', icon: 'check', pos: 'bottom' }],
+      flows: [
+        { path: ['users', 'web'], kind: 'req', n: 2 }, { path: ['web', 'users'], kind: 'res', n: 2, delay: 1.2 },
+      ],
+      metrics: { svc: ['정상', 'ok'] },
+    },
+    {
+      key: 'SG 참조', kind: 'solution', title: 'DB의 문은 IP 대신 보안 그룹으로',
+      body: [
+        'DB의 <code>sg-db</code>에는 <code>3306</code>을 열어야 합니다. 출발지를 <code>10.0.0.0/16</code>으로 쓰면 VPC 안의 <b>모든</b> 서버가 DB에 닿습니다. 웹 서버 IP를 하나씩 적으면 서버가 늘거나 바뀔 때마다 규칙을 고쳐야 하고요.',
+        '대신 출발지에 <b>다른 보안 그룹</b>을 씁니다. "<code>3306</code>, 출발지 <code>sg-web</code>"이면 sg-web이 붙은 서버만 들어옵니다. 웹 서버가 새로 생겨도 sg-web만 붙이면 규칙은 그대로입니다.',
+      ],
+      callout: { type: 'key', text: 'SG 참조는 IP가 아니라 <b>역할</b>로 허용하는 방식입니다. IP는 바뀌어도 역할은 바뀌지 않으니, 서버가 수시로 늘고 주는 환경에서 특히 쓸모가 있습니다.' },
+      show: ['web2'],
+      set: { web2: { badge: 'sg-web', tone: 'info' }, db: { badge: 'sg-db', tone: 'info' } },
+      focus: ['db'],
+      panel: {
+        title: 'sg-db 규칙', icon: 'shield',
+        rows: [['인바운드 · TCP 3306', '출발지 sg-web', 'ok'], ['출발지가 10.0.0.0/16이라면', 'VPC 전체가 닿음', 'warn']],
+      },
+      tags: [{ on: 'web2', text: '새 서버도 자동 허용', tone: 'ok', pos: 'bottom' }],
+      flows: [
+        { path: ['web', 'db'], kind: 'req', n: 2 }, { path: ['web2', 'db'], kind: 'req', n: 2, delay: 0.6 },
+        { path: ['db', 'web'], kind: 'res', n: 2, delay: 1.4 },
+      ],
+      metrics: { dbsrc: ['sg-web만', 'ok'] },
+      changes: [['+', 'sg-db: 3306 ← sg-web'], ['+', '웹 서버 2 (sg-web 부착)'], ['~', '서버가 늘어도 규칙은 그대로']],
+    },
+    {
+      key: '22번 개방', kind: 'case', title: '사례: 22번을 0.0.0.0/0에 열어 두면',
+      body: [
+        '개발자가 집에서 SSH로 붙으려는데 집 IP가 자꾸 바뀝니다. 그래서 "잠깐만" 하고 <code>sg-web</code>에 <code>22</code>, 출발지 <code>0.0.0.0/0</code>을 넣었습니다. 얼마 지나지 않아 봇들이 흔한 계정과 비밀번호를 대입하기 시작합니다.',
+        '이제 서버의 안전은 SSH 설정 하나에 달렸습니다. 게다가 sg-web은 웹 서버 2에도 붙어 있으니 <b>같은 그룹의 모든 서버</b>가 함께 열렸습니다.',
+      ],
+      callout: { type: 'tip', text: '22번은 열지 않는 것이 정답입니다. 앞 레슨의 <b>Session Manager</b>처럼 인바운드 없이 접속하거나, 꼭 열어야 한다면 사무실 IP <code>/32</code>로만 엽니다. "임시" 규칙일수록 오래 남으니 점검 도구로 감시하세요.' },
+      show: ['scan', 'admin', 'e_admin_web'],
+      set: { web: { state: 'hot' }, web2: { state: 'hot' } },
+      tags: [{ on: 'web', text: '22 대입 공격', tone: 'bad', icon: 'unlock', pos: 'bottom' }],
+      flows: [
+        { path: ['scan', 'web'], kind: 'bad', n: 4, gap: 0.3 },
+        { path: ['admin', 'web'], kind: 'ctrl', n: 2, delay: 0.6 },
+      ],
+      metrics: { ports: ['443 · 22', 'bad'] },
+      changes: [['-', 'sg-web: 22 ← 0.0.0.0/0'], ['~', 'sg-web이 붙은 서버 전부 노출']],
+    },
+    {
+      key: 'NACL', kind: 'concept', title: '두 번째 겹: 서브넷 입구의 NACL',
+      body: [
+        '<b>NACL</b>(Network ACL)은 <b>서브넷</b> 경계에 붙는 방화벽입니다. 그 서브넷의 모든 서버에 한꺼번에 적용되고, SG와 달리 <b>거부</b> 규칙도 쓸 수 있습니다. 규칙에는 번호가 있어 작은 번호부터 보고, 처음 맞은 규칙으로 결정합니다.',
+        '특정 대역에서 공격이 쏟아질 때 NACL에 거부 한 줄을 넣으면 서브넷 입구에서 바로 끊깁니다. 기본 NACL은 전부 허용이라, 보통은 SG가 주 방어선이고 NACL은 굵은 울타리입니다.',
+      ],
+      hide: ['admin', 'e_admin_web', 'e_users_web', 'e_scan_web'],
+      show: ['nacl', 'e_users_nacl', 'e_nacl_web', 'e_scan_nacl'],
+      set: { web: { state: null }, web2: { state: null } },
+      focus: ['nacl'],
+      panel: {
+        title: 'NACL 인바운드 (퍼블릭 서브넷)', icon: 'list',
+        rows: [
+          ['90 · 거부 · 전체', '203.0.113.0/24', 'bad'],
+          ['100 · 허용 · TCP 443', '0.0.0.0/0', 'ok'],
+          ['* · 거부 · 나머지', '0.0.0.0/0', 'mute'],
+        ],
+      },
+      tags: [{ on: 'scan', text: '203.0.113.7', tone: 'bad', pos: 'bottom' }],
+      flows: [
+        { path: ['users', 'nacl', 'web'], kind: 'req', n: 2 },
+        { path: ['scan', 'nacl'], kind: 'bad', n: 3, gap: 0.3, delay: 0.3 },
+      ],
+      metrics: { ports: ['443만', 'ok'], layers: ['2겹 (NACL + SG)', 'ok'] },
+      changes: [['-', 'sg-web의 22 규칙 삭제'], ['+', 'NACL: 공격 대역 거부'], ['~', '서브넷 전체에 한 번에 적용']],
+    },
+    {
+      key: '응답 차단', kind: 'case', title: '사례: 요청은 들어오는데 응답이 없다',
+      body: [
+        'NACL은 <b>stateless</b>입니다. 연결을 기억하지 않아서, 나가는 응답도 아웃바운드 규칙으로 다시 검사합니다. 그런데 응답은 <code>443</code>이 아니라 고객 PC가 고른 <b>임시 포트</b>(ephemeral port, 대개 <code>1024</code> 이상)로 갑니다.',
+        '누군가 아웃바운드를 "TCP 443만 허용"으로 깔끔하게 정리했습니다. 요청은 들어오고 서버 로그도 정상인데, 응답이 서브넷을 나가지 못해 고객 화면은 타임아웃입니다.',
+      ],
+      callout: { type: 'tip', text: '커스텀 NACL에는 아웃바운드 <code>1024–65535</code>를 허용하세요. 서버가 먼저 나간 연결의 응답을 위해 인바운드에도 같은 범위가 필요합니다.' },
+      hide: ['scan'],
+      panel: {
+        title: 'NACL 아웃바운드', icon: 'list',
+        rows: [
+          ['100 · 허용 · TCP 443', '0.0.0.0/0', 'warn'],
+          ['* · 거부 · 나머지', '← 응답이 여기서 막힘', 'bad'],
+          ['넣어야 할 줄', 'TCP 1024–65535 허용', 'ok'],
+        ],
+      },
+      tags: [{ on: 'nacl', text: '응답 drop', tone: 'bad', icon: 'ban' }],
+      flows: [
+        { path: ['users', 'nacl', 'web'], kind: 'req', n: 2 },
+        { path: ['web', 'nacl'], kind: 'bad', n: 2, delay: 1.8 },
+      ],
+      metrics: { svc: ['타임아웃', 'bad'] },
+    },
+    {
+      key: '4대 클라우드', kind: 'compare', title: '네 클라우드의 방화벽',
+      body: [
+        'Azure는 <b>NSG</b> 하나가 두 역할을 합니다. 서브넷이나 NIC에 붙이고, 허용·거부 규칙을 <b>우선순위 번호</b> 순으로 평가하며, stateful입니다. GCP는 방화벽 규칙을 <b>VPC 수준</b>에서 만들고, 적용 대상을 네트워크 태그나 서비스 계정으로 고릅니다.',
+        'NCP는 AWS와 가장 닮았습니다. 서버에 붙는 <b>ACG</b>(허용만, stateful)와 서브넷에 붙는 <b>NACL</b>(허용·거부, stateless)의 두 겹입니다.',
+      ],
+      callout: { type: 'cloud', text: '이름은 달라도 질문은 같습니다. <b>어디에 붙는가, 거부를 쓸 수 있는가, 응답을 기억하는가.</b> 이 세 가지만 확인하면 어느 클라우드든 읽힙니다.' },
+      hide: ['vpc', 'pub', 'priv', 'users', 'nacl', 'web', 'web2', 'db'],
+      show: ['aws', 'azure', 'gcp', 'ncp'],
+      panel: {
+        title: '방화벽이 붙는 곳', icon: 'cloud',
+        rows: [
+          ['AWS', 'SG (서버) + NACL (서브넷)', 'aws'], ['Azure', 'NSG (서브넷 또는 NIC)', 'azure'],
+          ['GCP', '방화벽 규칙 (VPC · 태그)', 'gcp'], ['NCP', 'ACG (서버) + NACL (서브넷)', 'ncp'],
+        ],
+      },
+      tags: [
+        { on: 'aws', text: 'SG가 SG를 참조', tone: 'aws' }, { on: 'azure', text: '우선순위 · 거부 가능', tone: 'azure' },
+        { on: 'gcp', text: '태그 · 서비스 계정', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: 'AWS와 같은 두 겹', tone: 'ncp', pos: 'bottom' },
+      ],
+    },
+    {
+      key: '정리', kind: 'recap', title: '정리: 필요한 포트를, 필요한 곳에만',
+      body: [
+        '보안 그룹은 서버마다 붙는 <b>허용 목록</b>이고 응답을 기억합니다. 출발지는 IP보다 <b>다른 SG</b>로 좁힙니다. NACL은 서브넷 입구의 <b>번호 매긴 규칙</b>으로, 거부를 쓸 수 있지만 응답 길까지 직접 열어 줘야 합니다.',
+        '다음 레슨에서는 웹 서버 앞에 <b>로드 밸런서</b>를 세웁니다. 그러면 sg-web의 출발지도 <code>0.0.0.0/0</code>에서 <b>LB의 보안 그룹</b>으로 좁힐 수 있습니다.',
+      ],
+      hide: ['aws', 'azure', 'gcp', 'ncp'],
+      show: ['vpc', 'pub', 'priv', 'users', 'nacl', 'web', 'web2', 'db'],
+      focus: ['nacl', 'web', 'db'],
+      flows: [
+        { path: ['users', 'nacl', 'web', 'db'], kind: 'req', n: 2 },
+        { path: ['db', 'web', 'nacl', 'users'], kind: 'res', n: 2, delay: 2.4 },
+      ],
+      metrics: { svc: ['정상', 'ok'] },
+      changes: [['+', 'NACL 아웃바운드 1024–65535 허용'], ['~', '두 겹 모두 최소 개방']],
+    },
+  ],
+  quiz: [
+    {
+      q: '웹 서버 SG에 인바운드 443만 두고, 아웃바운드 규칙은 전부 지웠습니다. 어떤 일이 생길까요?',
+      options: [
+        '고객 요청은 들어오지만 응답이 나가지 못해 타임아웃이 난다',
+        '고객 응답은 정상으로 나가고, 서버가 먼저 시작하는 외부 연결만 막힌다',
+        '인바운드도 함께 막혀 아무도 접속하지 못한다',
+        'SG는 아웃바운드 규칙이 비면 자동으로 전부 허용으로 돌아간다',
+      ],
+      answer: 1,
+      why: 'SG는 stateful이라 허용된 인바운드 연결의 응답은 아웃바운드 규칙과 무관하게 나갑니다. 막히는 것은 서버가 먼저 시작하는 패치 다운로드·외부 API 호출입니다. 응답까지 막히는 것은 stateless인 NACL의 이야기입니다.',
+    },
+    {
+      q: '웹 서버가 트래픽에 따라 2대에서 10대까지 수시로 늘고 줍니다. DB 보안 그룹의 3306 규칙으로 가장 알맞은 것은?',
+      options: [
+        '출발지 10.0.0.0/16 (VPC 전체)',
+        '출발지 0.0.0.0/0, 대신 DB 비밀번호를 강하게',
+        '출발지: 웹 서버들의 보안 그룹(sg-web)',
+        '웹 서버가 생길 때마다 그 IP /32를 규칙에 추가',
+      ],
+      answer: 2,
+      why: 'SG 참조는 역할로 허용하므로 서버가 늘고 줄어도 규칙을 고칠 필요가 없습니다. VPC 전체를 열면 DB에 닿을 필요 없는 서버까지 허용되고, IP를 하나씩 넣는 방식은 자동화 없이 유지하기 어렵고 실수하기 쉽습니다.',
+    },
+    {
+      q: '특정 IP 대역에서 퍼블릭 서브넷의 모든 서버로 공격이 쏟아집니다. 당장 그 대역만 막으려면?',
+      options: [
+        '각 서버의 SG에 그 대역을 거부하는 규칙을 넣는다',
+        'NACL에 그 대역을 거부하는 규칙을, 허용 규칙보다 작은 번호로 넣는다',
+        'NACL에 거부 규칙을 허용 규칙보다 큰 번호로 넣는다',
+        '라우팅 테이블에서 0.0.0.0/0 → IGW 경로를 지운다',
+      ],
+      answer: 1,
+      why: 'SG에는 거부 규칙이 없습니다. NACL은 작은 번호부터 보고 처음 맞은 규칙으로 결정하므로, 거부가 허용보다 앞 번호여야 효과가 있습니다. IGW 경로를 지우면 공격과 함께 모든 고객도 끊깁니다.',
+    },
+    {
+      q: '커스텀 NACL을 붙인 뒤로 웹 요청은 서버 로그에 찍히는데 고객 화면은 타임아웃입니다. 가장 유력한 원인은?',
+      options: [
+        'SG의 아웃바운드 규칙이 비어 있다',
+        'NACL 아웃바운드에 고객의 임시 포트(1024–65535)로 가는 응답이 허용되어 있지 않다',
+        '라우팅 테이블에 NAT 경로가 없다',
+        'NACL 인바운드에 443이 허용되어 있지 않다',
+      ],
+      answer: 1,
+      why: '요청이 서버에 도착했으니 인바운드는 열려 있습니다. NACL은 stateless라 응답도 아웃바운드 규칙으로 검사하고, 응답은 고객 쪽 임시 포트로 갑니다. SG는 stateful이라 아웃바운드가 비어도 응답이 나갑니다.',
+    },
+  ],
+};
