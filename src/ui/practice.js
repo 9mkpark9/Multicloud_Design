@@ -63,7 +63,7 @@ export function mountPractice(main, ctx) {
     : done ? `
     <div class="result">
       <div class="score ${right === questions.length ? 'perfect' : ''}">${icon(right === questions.length ? 'trophy' : 'target', 30)}<b>${right} / ${questions.length}</b><span>${right === questions.length ? '전부 맞혔습니다!' : right / questions.length >= 0.7 ? '좋아요. 틀린 문제만 다시 볼까요?' : '레슨을 한 번 더 보고 다시 도전해 보세요.'}</span></div>
-      ${results.some((r) => !r.ok) ? `<h3>다시 볼 문제</h3><ul class="miss">${results.filter((r) => !r.ok).map((r) => `<li><span>${esc(r.q.q)}</span><a class="btn sm" href="#/${r.q.lesson}/1">${icon('book', 12)}${esc(LESSON_META[r.q.lesson].title)}</a></li>`).join('')}</ul>` : ''}
+      ${results.some((r) => !r.ok) ? `<h3>다시 볼 문제</h3><ul class="miss">${results.filter((r) => !r.ok).map((r) => `<li><span>${esc(r.q.q)}</span><a class="btn sm" href="#/${r.q.lesson}/${r.q.step || 1}">${icon('book', 12)}${esc(LESSON_META[r.q.lesson].title)}${r.q.step ? ` · ${r.q.step}단계` : ''}</a></li>`).join('')}</ul>` : ''}
       <div class="result-btns"><button class="btn primary" id="again" type="button">${icon('replay', 14)}다시 풀기</button><a class="btn" href="#/${les.id}/1">${icon('book', 14)}레슨으로</a></div>
     </div>`
     : `
@@ -75,7 +75,7 @@ export function mountPractice(main, ctx) {
       <div class="opts">
         ${q.options.map((o, i) => `<button type="button" class="opt ${picked == null ? '' : i === q.answer ? 'right' : i === picked ? 'wrong' : 'rest'}" data-i="${i}" ${picked != null ? 'disabled' : ''}><kbd>${i + 1}</kbd><span>${esc(o)}</span>${picked != null && i === q.answer ? icon('check', 16) : picked === i ? icon('x', 16) : ''}</button>`).join('')}
       </div>
-      ${picked != null ? `<div class="why ${picked === q.answer ? 'ok' : 'no'}"><b>${picked === q.answer ? '맞았습니다' : '아쉽네요'}</b><p>${esc(q.why)}</p></div>
+      ${picked != null ? `<div class="why ${picked === q.answer ? 'ok' : 'no'}"><b>${picked === q.answer ? '맞았습니다' : '아쉽네요'}</b><p>${esc(q.why)}</p>${q.step ? `<a class="why-link" href="#/${q.lesson}/${q.step}">${icon('book', 12)}${esc(LESSON_META[q.lesson].title)} ${q.step}단계에서 다시 보기</a>` : ''}</div>
       <div class="q-next"><button class="btn primary" id="next" type="button">${at + 1 < questions.length ? '다음 문제' : '결과 보기'}${icon('arrow-right', 14)}</button><kbd>Enter</kbd></div>` : ''}
     </article>`}
   </div>

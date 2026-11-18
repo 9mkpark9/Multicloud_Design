@@ -39,11 +39,23 @@ export function createScene(host, lesson, { still = false } = {}) {
     </pattern>
     ${['', 'mute', 'bad', 'ok', 'accent'].map((t) => `<marker id="${uid}-arr${t}" class="arr ${t}" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="8.5" markerHeight="8.5" orient="auto-start-reverse"><path d="M0.8 1L9 5L0.8 9Z"/></marker>`).join('')}
   </defs>
-  <rect x="-6000" y="-6000" width="12000" height="12000" fill="url(#${uid}-grid)"/>
+  <rect class="grid-bg" fill="url(#${uid}-grid)"/>
   <g class="L-zones"></g><g class="L-edges"></g><g class="L-flows"></g><g class="L-nodes"></g><g class="L-tags"></g>
 </svg>`;
   const svg = host.querySelector('svg');
   const layer = (c) => svg.querySelector('.L-' + c);
+  const gridBg = svg.querySelector('.grid-bg');
+  // The background grid covers the camera frame plus a margin (the stage can be wider or taller than
+  // the frame), not a huge fixed area: iPhone Safari reloads pages whose SVGs paint too much.
+  function setView(box) {
+    vb = box;
+    svg.setAttribute('viewBox', vb.map(f).join(' '));
+    const m = Math.max(vb[2], vb[3]);
+    const cx = vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2;
+    gridBg.setAttribute('x', f(cx - m * 1.5)); gridBg.setAttribute('y', f(cy - m * 1.5));
+    gridBg.setAttribute('width', f(m * 3)); gridBg.setAttribute('height', f(m * 3));
+  }
+  setView(vb);
   const el = { nodes: {}, zones: {}, edges: {} };
   const sig = {};
   const geo = {}; // node id → drawNode() result for its current look
@@ -145,8 +157,8 @@ export function createScene(host, lesson, { still = false } = {}) {
       const tone = e.tone || '';
       const arrow = e.arrow === false ? '' : `marker-end="url(#${uid}-arr${tone})"`;
       const arrow2 = e.bi ? `marker-start="url(#${uid}-arr${tone})"` : '';
-      g.innerHTML = `<mask id="${uid}-m-${id}" maskUnits="userSpaceOnUse" x="-6000" y="-6000" width="12000" height="12000"><path class="m-draw" pathLength="1"/></mask>
-<g mask="url(#${uid}-m-${id})"><path class="e-line ${e.style || ''} ${tone}" ${arrow} ${arrow2}/>${e.label ? `<g class="e-lab">${pill(e.label, { fs: 12.5, shadow: false, cls: 'e-label', tone }).svg}</g>` : ''}</g>`;
+      g.innerHTML = `<mask id="${uid}-m-${id}" maskUnits="userSpaceOnUse"><path class="m-draw" pathLength="1"/></mask>
+<g class="e-body"><path class="e-line ${e.style || ''} ${tone}" ${arrow} ${arrow2}/>${e.label ? `<g class="e-lab">${pill(e.label, { fs: 12.5, shadow: false, cls: 'e-label', tone }).svg}</g>` : ''}</g>`;
       g.dataset.path = '';
     }
     const pts = edgePoints(e);
@@ -155,6 +167,12 @@ export function createScene(host, lesson, { still = false } = {}) {
     g.dataset.path = d;
     g.querySelector('.e-line').setAttribute('d', d);
     g.querySelector('.m-draw').setAttribute('d', d);
+    if (pts) {
+      const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+      const mask = g.querySelector('mask');
+      mask.setAttribute('x', f(Math.min(...xs) - 90)); mask.setAttribute('y', f(Math.min(...ys) - 90));
+      mask.setAttribute('width', f(Math.max(...xs) - Math.min(...xs) + 180)); mask.setAttribute('height', f(Math.max(...ys) - Math.min(...ys) + 180));
+    }
     const lab = g.querySelector('.e-lab');
     if (lab && pts) {
       const mid = pts.length % 2 ? pts[(pts.length - 1) / 2] : [(pts[pts.length / 2 - 1][0] + pts[pts.length / 2][0]) / 2, (pts[pts.length / 2 - 1][1] + pts[pts.length / 2][1]) / 2];
@@ -238,16 +256,13 @@ export function createScene(host, lesson, { still = false } = {}) {
     const from = {};
     for (const id of moves) from[id] = gpos[id];
     const touched = ids.edges.filter((id) => moves.some((m) => def.edges[id].from === m || def.edges[id].to === m));
-    if (camInstant) { vb = camTo; svg.setAttribute('viewBox', vb.map(f).join(' ')); }
+    if (camInstant) setView(camTo);
     if (!moves.length && camInstant) return;
     const start = performance.now();
     const tick = (now) => {
       const k = Math.min(1, (now - start) / 680);
       const e = ease(k);
-      if (!camInstant) {
-        vb = camFrom.map((v, i) => v + (camTo[i] - v) * e);
-        svg.setAttribute('viewBox', vb.map(f).join(' '));
-      }
+      if (!camInstant) setView(camFrom.map((v, i) => v + (camTo[i] - v) * e));
       for (const id of moves) {
         gpos[id] = [from[id][0] + (tpos[id][0] - from[id][0]) * e, from[id][1] + (tpos[id][1] - from[id][1]) * e];
         placeNode(id);
@@ -332,8 +347,16 @@ export function createScene(host, lesson, { still = false } = {}) {
         settle = Math.max(settle, d + 0.45);
         g.style.setProperty('--d', `${d.toFixed(2)}s`);
         g.classList.remove('off');
+        // the mask exists only while the arrow draws itself; after that it is plain paint again
+        const body = g.querySelector('.e-body');
+        body.setAttribute('mask', `url(#${uid}-m-${id})`);
+        clearTimeout(g._unmask);
+        g._unmask = setTimeout(() => body.removeAttribute('mask'), (d + 0.6) * 1000);
         restart(g, 'enter');
-      } else if (!on) g.classList.remove('enter');
+      } else {
+        if (!on) g.classList.remove('enter');
+        if (calm || !on) { clearTimeout(g._unmask); g.querySelector('.e-body')?.removeAttribute('mask'); }
+      }
       g.classList.toggle('off', !on);
     }
 

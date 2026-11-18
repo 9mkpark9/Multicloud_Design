@@ -89,6 +89,7 @@ export function mountLearn(main, lessonId, startStep, ctx) {
         <div class="scene-host" id="scene"></div>
         <div class="panel" id="panel" hidden></div>
       </div>
+      <div class="deep" id="deep" hidden></div>
     </div>
     <div class="legend" id="legend"></div>
   </div>
@@ -192,6 +193,8 @@ export function mountLearn(main, lessonId, startStep, ctx) {
   ${(st.body || []).map((p) => `<p>${p}</p>`).join('')}
   ${co ? `<div class="callout co-${st.callout.type}"><span class="co-ico">${icon(co.icon, 15)}</span><div><small>${co.label}</small>${st.callout.text}</div></div>` : ''}
   ${st.changes?.length ? `<div class="changes"><small>달라진 점</small>${st.changes.map(([sign, text]) => `<div class="chg"><i class="s${sign === '+' ? 'p' : sign === '-' || sign === '−' ? 'm' : 't'}">${sign === '-' ? '−' : esc(sign)}</i><span>${text}</span></div>`).join('')}</div>` : ''}
+  ${st.more?.length ? `<button class="more-btn ${deepOpen ? 'on' : ''}" id="more-btn" type="button" aria-expanded="${deepOpen}">${icon('book', 14)}<span><b>더 알아보기</b><small>${st.more.map((m) => esc(m.title)).join(' · ')}</small></span>${icon(deepOpen ? 'x' : 'chevron-right', 14)}</button>
+  <div class="deep-inline" id="deep-inline" ${deepOpen ? '' : 'hidden'}></div>` : ''}
 </div>
 <div class="step-nav">
   ${step > 1 ? `<a class="btn" href="#/${lesson.id}/${step - 1}">${icon('arrow-left', 14)}<span>뒤로</span></a>` : prevId ? `<a class="btn" href="#/${prevId}/1" title="${esc(LESSON_META[prevId].title)}">${icon('arrow-left', 14)}<span>이전 레슨</span></a>` : `<span class="btn disabled">${icon('arrow-left', 14)}<span>뒤로</span></span>`}
@@ -199,13 +202,14 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     : nextId ? `<a class="btn primary grow" href="#/${nextId}/1"><span>다음 레슨: ${esc(LESSON_META[nextId].title)}</span>${icon('arrow-right', 14)}</a>`
     : `<a class="btn primary grow" href="#/roadmap"><span>코스 완주! 로드맵 보기</span>${icon('trophy', 14)}</a>`}
 </div>
-<div class="keys"><kbd>←</kbd><kbd>→</kbd> 단계 · <kbd>R</kbd> 다시 보기 · <kbd>Space</kbd> 일시정지${lesson.quiz?.length && !nextStep ? ` · <a href="#/practice/lesson/${lesson.id}">퀴즈 풀기</a>` : ''}</div>`;
+<div class="keys"><kbd>←</kbd><kbd>→</kbd> 단계 · <kbd>R</kbd> 다시 보기${st.more?.length ? ' · <kbd>D</kbd> 더 알아보기' : ''}${lesson.quiz?.length && !nextStep ? ` · <a href="#/practice/lesson/${lesson.id}">퀴즈 풀기</a>` : ''}</div>`;
 
     // the step card's text rises in piece by piece
     const card = $('#stepcard');
     [card.querySelector('.step-top'), card.querySelector('h2'), ...card.querySelectorAll('.step-body > *')].forEach((n, i) => n?.style.setProperty('--i', i));
     card.querySelectorAll('.chg').forEach((n, i) => n.style.setProperty('--i', i));
     restartClass(card, 'swap');
+    paintDeep(st);
 
     // checklist and timeline
     const items = learned(lesson, step - 1);
@@ -226,6 +230,43 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     $('#pause').innerHTML = scene.paused ? `${icon('play', 13)}<span>재생</span>` : `${icon('pause', 13)}<span>일시정지</span>`;
   }
 
+  // ---- "더 알아보기": the step's deep dive, over the stage (wide screens) or inside the card (phones) ----
+  let deepOpen = false;
+  const narrow = () => matchMedia('(max-width: 859px)').matches;
+  function deepHtml(st) {
+    return `<div class="deep-head"><span>${icon('book', 15)}<b>더 알아보기</b><em>${esc(st.title)}</em></span><button class="icon-btn" id="deep-x" type="button" aria-label="닫기">${icon('x', 15)}</button></div>
+<div class="deep-body">${st.more.map((m, i) => `<section class="deep-sec" style="--i:${i}"><h3>${esc(m.title)}</h3>
+  ${(m.body || []).map((p) => `<p>${p}</p>`).join('')}
+  ${m.list ? `<ul>${m.list.map((li) => `<li>${li}</li>`).join('')}</ul>` : ''}
+  ${m.rows ? `<div class="deep-rows">${m.rows.map(([a, b, tone]) => `<div class="panel-row ${tone ? 't-' + tone : ''}"><span>${esc(a)}</span><em>${esc(b ?? '')}</em></div>`).join('')}</div>` : ''}
+  ${m.code ? `<div class="code-pane deep-code">${codePane(m.code)}</div>` : ''}
+</section>`).join('')}</div>`;
+  }
+  function paintDeep(st) {
+    const has = Boolean(st.more?.length);
+    if (!has) deepOpen = false;
+    const wide = $('#deep');
+    const inline = $('#deep-inline');
+    const showWide = deepOpen && !narrow();
+    wide.hidden = !showWide;
+    $('.stage').classList.toggle('deep-on', showWide);
+    if (showWide) { wide.innerHTML = deepHtml(st); wide.scrollTop = 0; restartClass(wide, 'swap'); }
+    if (inline) { inline.hidden = !(deepOpen && narrow()); if (!inline.hidden) inline.innerHTML = deepHtml(st); }
+    const btn = $('#more-btn');
+    if (btn) {
+      btn.classList.toggle('on', deepOpen);
+      btn.setAttribute('aria-expanded', deepOpen);
+      btn.lastElementChild.outerHTML = icon(deepOpen ? 'x' : 'chevron-right', 14);
+      btn.onclick = () => toggleDeep();
+    }
+    main.querySelectorAll('#deep-x').forEach((x) => { x.onclick = () => toggleDeep(false); });
+  }
+  function toggleDeep(on = !deepOpen) {
+    deepOpen = on;
+    paintDeep(lesson.steps[step - 1]);
+    if (on && narrow()) $('#deep-inline')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
   $('#replay').addEventListener('click', () => paint('build'));
   $('#pause').addEventListener('click', () => { scene.setPaused(!scene.paused); paintPause(); });
 
@@ -238,6 +279,8 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     } else if (e.key === 'ArrowLeft') {
       if (step > 1) ctx.go(`#/${lesson.id}/${step - 1}`);
     } else if (e.key.toLowerCase() === 'r') paint('build');
+    else if (e.key.toLowerCase() === 'd' && lesson.steps[step - 1].more?.length) toggleDeep();
+    else if (e.key === 'Escape' && deepOpen) toggleDeep(false);
     else if (e.key === ' ') { e.preventDefault(); scene.setPaused(!scene.paused); paintPause(); }
   };
   window.addEventListener('keydown', onKey);
@@ -248,6 +291,7 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     lesson: lessonId,
     update(n) {
       const next = Math.min(Math.max(1, n), total);
+      if (next === step) return;
       const mode = next === step + 1 || next === step - 1 ? 'next' : 'build';
       step = next;
       paint(mode);

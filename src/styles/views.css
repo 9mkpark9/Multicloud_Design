@@ -179,3 +179,4 @@ a.rm-next:active { transform: translateY(3px); box-shadow: none; }
   .filter input { width: 130px; }
   .q-card { padding: 15px; }
 }
+.why-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }

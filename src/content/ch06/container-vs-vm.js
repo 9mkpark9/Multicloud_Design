@@ -3,12 +3,12 @@ export default {
   learn: [
     '"내 PC에선 되는데요"가 생기는 이유',
     'VM의 구조: 하이퍼바이저와 게스트 OS',
-    '컨테이너가 가벼운 이유: 호스트 커널 공유',
-    'namespace와 cgroup이 하는 일',
-    '이미지와 컨테이너의 관계',
-    '격리 수준의 차이와 VM + 컨테이너 구조',
+    '컨테이너의 정체: 호스트 커널 위의 격리된 프로세스',
+    'namespace(보이는 것)와 cgroup(쓰는 양)',
+    '격리의 한계와 컨테이너를 단단하게 띄우는 옵션',
+    'VM + 컨테이너를 겹쳐 쓰는 클라우드의 표준 구조',
   ],
-  legend: [['build', '배포 · 이미지'], ['ctrl', '가상 하드웨어'], ['req', '시스템 콜'], ['bad', '실패 · 침입']],
+  legend: [['build', '배포 · 이미지'], ['ctrl', '가상 하드웨어 · 생성'], ['req', '시스템 콜'], ['bad', '실패 · 침입']],
   metrics: [
     { id: 'boot', label: '시작 시간', icon: 'timer' },
     { id: 'size', label: '배포 크기', icon: 'hard-drive' },
@@ -32,6 +32,7 @@ export default {
       gos1: { at: [5.6, -1.3], label: '게스트 OS', sub: 'Node 20', icon: 'hard-drive', color: 'gray' },
       gos2: { at: [5.6, 1.9], label: '게스트 OS', sub: 'Node 16', icon: 'hard-drive', color: 'gray' },
       kernel: { at: [5.8, 0], label: '호스트 OS', sub: '커널 1개', icon: 'cpu', color: 'slate' },
+      rt: { at: [3.4, -2.4], label: '런타임', sub: 'containerd', icon: 'settings', color: 'gray' },
       c1: { at: [3.4, 0], label: '앱 A', sub: 'Node 20', icon: 'container', color: 'blue' },
       c2: { at: [5.8, -2.4], label: '앱 B', sub: 'Node 16', icon: 'container', color: 'purple' },
       c3: { at: [8.2, 0], label: '앱 C', sub: 'Python', icon: 'container', color: 'teal' },
@@ -53,6 +54,8 @@ export default {
       e_k2: { from: 'c2', to: 'kernel' },
       e_k3: { from: 'c3', to: 'kernel' },
       e_k4: { from: 'c4', to: 'kernel' },
+      e_rt1: { from: 'rt', to: 'c1', style: 'dashed' },
+      e_rt2: { from: 'rt', to: 'c2', style: 'dashed' },
       e_bld: { from: 'dev', to: 'img' },
       e_r1: { from: 'img', to: 'r1' },
       e_r2: { from: 'img', to: 'r2' },
@@ -75,6 +78,20 @@ export default {
       ],
       flows: [{ path: ['dev', 'os'], kind: 'build', n: 2 }, { path: ['os', 'a1'], kind: 'bad', n: 2, delay: 1.2 }],
       metrics: { boot: '1초 미만', size: '코드만', dens: '앱 1개', iso: ['없음', 'bad'] },
+      more: [
+        { title: '"환경"에 들어 있는 것', list: [
+          '<b>언어 런타임</b>: Node · Python · JVM의 버전. 문법이나 내장 API가 버전마다 다릅니다.',
+          '<b>공유 라이브러리</b>: glibc, OpenSSL처럼 OS에 깔린 C 라이브러리. 네이티브 모듈(<code>bcrypt</code>, <code>sharp</code> 등)은 이것과 맞물려 컴파일됩니다.',
+          '<b>OS 패키지와 도구</b>: ImageMagick, 폰트, CA 인증서 묶음 같은 것들.',
+          '<b>설정</b>: 환경 변수, 시간대(TZ), 로케일, 파일 경로와 권한.',
+        ] },
+        { title: '직접 해보기', body: ['두 곳의 환경을 나란히 찍어 보면 어디가 다른지 바로 보입니다. 장애 보고서에 이 출력을 붙이는 습관만으로도 원인 찾기가 빨라져요.'],
+          code: { title: 'terminal', lang: 'sh', text: '$ node -v\nv20.11.1\n$ ldd --version | head -1\nldd (Ubuntu GLIBC 2.35-0ubuntu3) 2.35\n$ openssl version\nOpenSSL 3.0.2 15 Mar 2022\n\n# 운영 서버에서 같은 명령 → v16.20.2, GLIBC 2.31 …' } },
+        { title: '컨테이너 이전의 해법들', body: [
+          'Ansible 같은 구성 관리 도구로 서버마다 같은 설치 스크립트를 돌리거나, 다 깔아 둔 <b>골든 이미지</b>(AMI 등)로 VM을 찍어 냈습니다. 둘 다 효과는 있지만, 서버를 오래 쓰면 손으로 고친 흔적이 쌓여 조금씩 달라지는 <b>구성 드리프트</b>를 막기 어렵습니다.',
+          '이 레슨의 결론은 "환경을 맞추지 말고 환경째 배송하라"입니다. 그 전에 먼저 VM이라는 해법부터 차례로 봅니다.',
+        ] },
+      ],
     },
     {
       key: '의존성 충돌', kind: 'problem', title: '서버를 고치면 옆 앱이 깨집니다',
@@ -90,6 +107,18 @@ export default {
       flows: [{ path: ['os', 'a1'], kind: 'req', n: 2 }, { path: ['os', 'a2'], kind: 'bad', n: 2, delay: 0.4 }],
       metrics: { dens: ['앱 2개 · 충돌', 'bad'] },
       changes: [['~', '서버 Node 16 → 20'], ['+', '앱 A 정상 동작'], ['-', '앱 B 실행 불가']],
+      more: [
+        { title: '격리가 필요한 세 가지', list: [
+          '<b>파일</b>: 앱마다 다른 런타임 · 라이브러리 버전을 쓸 수 있어야 합니다.',
+          '<b>자원</b>: 한 앱이 CPU · 메모리를 독차지해도 옆 앱은 버텨야 합니다(이른바 noisy neighbor 문제).',
+          '<b>이름 공간</b>: 두 앱이 모두 3000번 포트를 쓰고 싶어도, 한 OS에서는 하나만 차지할 수 있습니다.',
+        ] },
+        { title: '부분적인 해법과 그 한계', body: [
+          '<code>nvm</code>, <code>pyenv</code>처럼 언어 런타임을 여러 버전 깔아 두는 도구는 첫 번째 문제의 일부만 풉니다. OS 라이브러리, 포트, 메모리는 여전히 모두가 나눠 씁니다.',
+          '메모리가 바닥나면 Linux 커널의 <b>OOM killer</b>가 점수(<code>oom_score</code>)가 높은 프로세스를 골라 강제로 끝냅니다. 메모리를 새게 만든 범인이 아니라 옆 앱이 죽는 일도 생겨, 원인 찾기가 더 어려워집니다.',
+        ] },
+        { title: '더 생각해 볼 것', body: ['"앱마다 서버를 한 대씩 쓰면 되지 않나?"가 자연스러운 다음 질문입니다. 그 질문에 대한 답이 다음 단계의 VM이고, VM이 남긴 숙제가 컨테이너로 이어집니다.'] },
+      ],
     },
     {
       key: 'VM', kind: 'solution', title: 'VM: 앱마다 컴퓨터를 통째로',
@@ -105,6 +134,15 @@ export default {
       flows: [{ path: ['hv', [3.4, -1.3], 'gos1'], kind: 'ctrl', n: 2 }, { path: ['hv', [3.4, 1.9], 'gos2'], kind: 'ctrl', n: 2, delay: 0.3 }],
       metrics: { boot: '수십 초~분', size: '수 GB', dens: 'VM 2대', iso: ['OS째로 분리', 'ok'] },
       changes: [['+', '하이퍼바이저'], ['+', 'VM마다 게스트 OS'], ['~', '앱 A · B 모두 정상']],
+      more: [
+        { title: '동작 원리', body: [
+          '요즘 CPU에는 가상화를 돕는 명령(Intel VT-x, AMD-V)이 들어 있어, 게스트 OS의 명령 대부분이 실제 CPU에서 바로 실행됩니다. 하이퍼바이저는 게스트가 하드웨어에 손대려는 순간만 가로채서 대신 처리해요.',
+          '하이퍼바이저는 두 종류로 나눕니다. 하드웨어 위에 바로 올라가는 <b>Type 1</b>(KVM, Xen, Hyper-V, ESXi)은 서버와 클라우드에서, OS 위에 프로그램으로 깔리는 <b>Type 2</b>(VirtualBox 등)는 주로 개인 PC에서 씁니다.',
+        ] },
+        { title: '직접 해보기', body: ['클라우드 VM 안에서 보면, 내가 쓰는 서버가 하이퍼바이저 위에 있다는 흔적이 보입니다.'],
+          code: { title: 'terminal (클라우드 VM)', lang: 'sh', text: '$ lscpu | grep -i hypervisor\nHypervisor vendor:   KVM\n$ uname -r\n6.8.0-1015-aws\n# 이 VM만의 커널. 옆 VM은 다른 커널을 띄웁니다' } },
+        { title: '클라우드에서는', body: ['AWS는 KVM 기반의 Nitro, Azure는 Hyper-V 계열, GCP는 KVM 기반 하이퍼바이저를 씁니다. 어느 쪽이든 하이퍼바이저는 사업자가 운영하고, 우리는 그 위의 게스트 OS부터 책임집니다(공동 책임 모델).'] },
+      ],
     },
     {
       key: 'VM의 무게', kind: 'problem', title: '하지만 OS를 앱 수만큼 복사합니다',
@@ -120,12 +158,24 @@ export default {
         { on: 'hv', text: '부팅 수십 초~분', tone: 'warn', icon: 'hourglass' },
       ],
       metrics: { boot: ['수십 초~분', 'bad'], size: ['수 GB × VM 수', 'bad'] },
+      more: [
+        { title: '무게는 어디서 오나', list: [
+          '<b>디스크</b>: 게스트 OS 이미지만 보통 수 GB. VM 20대면 같은 OS 파일이 20벌입니다.',
+          '<b>메모리</b>: 커널, systemd, 로그 수집기, 모니터링 에이전트가 앱보다 먼저 수백 MB를 차지합니다.',
+          '<b>시간</b>: 펌웨어 → 커널 → init → 각종 서비스 순으로 부팅해야 앱이 뜹니다.',
+          '<b>운영</b>: OS 패치, 계정, 보안 설정도 VM 수만큼 반복해야 합니다.',
+        ] },
+        { title: '실무 판단', body: [
+          'VM이 나쁜 선택이라는 뜻은 아닙니다. 커널을 직접 고르거나 바꿔야 할 때, Windows 전용 소프트웨어, 라이선스가 VM 단위인 상용 제품, 서로 믿지 못하는 고객을 나눌 때는 여전히 VM이 맞습니다.',
+          '다만 "앱 하나에 VM 하나"로 수십 개 서비스를 운영하면 비용의 대부분이 앱이 아니라 OS에 들어갑니다. 클라우드 청구서에서 CPU 사용률이 5–10%인 VM이 줄지어 있다면 이 구조를 의심해 볼 만합니다.',
+        ] },
+      ],
     },
     {
       key: '컨테이너', kind: 'solution', title: '컨테이너: 커널은 하나, 나머지만 따로',
       body: [
         '<b>컨테이너</b>는 게스트 OS를 없앱니다. 모든 컨테이너가 <b>호스트의 커널 하나</b>를 함께 쓰고, 앱과 라이브러리·런타임만 각자 들고 옵니다.',
-        '컨테이너의 정체는 격리된 채로 실행되는 <b>평범한 프로세스</b>입니다. 부팅할 OS가 없으니 프로세스가 뜨는 속도로 시작하고, 크기는 수십~수백 MB면 충분합니다.',
+        '부팅할 OS가 없으니 프로세스가 뜨는 속도로 시작하고, 크기는 수십~수백 MB면 충분합니다. 같은 서버에 VM보다 훨씬 많이 올릴 수 있어요.',
       ],
       callout: { type: 'tip', text: '컨테이너는 Linux 커널의 기능입니다. 그래서 Mac·Windows의 Docker Desktop은 안에 작은 <b>Linux VM</b>을 띄우고 그 위에서 컨테이너를 돌립니다.' },
       hide: ['host', 'hv', 'vm1', 'vm2', 'gos1', 'gos2', 'a1', 'a2'],
@@ -138,19 +188,133 @@ export default {
       tags: [{ on: 'kernel', text: '모두가 같은 커널', tone: 'accent', icon: 'cpu' }],
       metrics: { boot: ['1초 안팎', 'ok'], size: ['수십 MB~', 'ok'], dens: ['컨테이너 4개', 'ok'], iso: ['커널 공유', 'warn'] },
       changes: [['-', '하이퍼바이저 · 게스트 OS'], ['+', '커널을 함께 쓰는 컨테이너 4개'], ['~', '시작: 분 → 초']],
+      more: [
+        { title: '직접 해보기', body: ['작은 이미지로 컨테이너를 띄웠다 지우는 데 걸리는 시간을 재 봅니다. 이미지가 이미 받아져 있다면 대개 1초 안쪽입니다(처음 한 번은 이미지를 내려받는 시간이 더해져요).'],
+          code: { title: 'terminal', lang: 'sh', text: '$ time docker run --rm alpine uname -r\n6.8.0-1015-aws\n\nreal    0m0.6s\n\n$ uname -r          # 호스트에서\n6.8.0-1015-aws' } },
+        { title: '출력 읽기', body: [
+          'Alpine 이미지 안에서 물었는데 <b>호스트와 똑같은 커널 버전</b>이 나옵니다. 이미지에는 커널이 들어 있지 않고, 모든 컨테이너가 호스트의 커널을 부르기 때문이에요. 이미지가 가벼운 이유이자, 다음 단계들에서 볼 격리 한계의 출발점입니다.',
+        ] },
+        { title: 'Mac · Windows에서는', body: [
+          'Docker Desktop은 가벼운 Linux VM(Windows는 WSL 2)을 띄우고 그 안에서 Docker 엔진을 돌립니다. 그래서 Mac에서 <code>uname -r</code>을 쳐 보면 macOS가 아닌 Linux 커널 버전이 나와요. Windows 커널을 쓰는 Windows 컨테이너도 따로 있지만, 클라우드 컨테이너의 대부분은 Linux입니다.',
+        ] },
+      ],
     },
     {
-      key: 'namespace', kind: 'concept', title: '격리의 정체: namespace와 cgroup',
+      key: '그냥 프로세스', kind: 'concept', title: '컨테이너의 정체: 평범한 프로세스',
       body: [
-        '<b>namespace</b>는 프로세스가 <b>볼 수 있는 것</b>을 제한합니다. 프로세스 목록(PID), 네트워크(NET), 파일시스템(MNT)마다 따로 있어서, 컨테이너 안에서는 자기 것만 보이고 서버를 혼자 쓰는 것처럼 느낍니다.',
-        '<b>cgroup</b>은 <b>쓸 수 있는 양</b>을 제한합니다. CPU와 메모리에 상한을 걸어, 한 컨테이너가 호스트 자원을 독차지하지 못하게 합니다.',
+        '<code>docker run</code>을 치면 Docker 엔진이 <b>런타임</b>(containerd → runc)에 일을 넘깁니다. runc는 커널에 격리 설정을 요청한 뒤 앱 프로세스를 실행하고 빠집니다.',
+        '그래서 컨테이너는 호스트에서 보면 <code>ps</code>에 나오는 <b>평범한 프로세스</b>입니다. 따로 도는 작은 컴퓨터가 아니라, 시야와 자원이 제한된 프로세스예요.',
+      ],
+      callout: { type: 'key', text: '같은 앱이 안에서는 <b>PID 1</b>, 호스트에서는 <b>PID 4123</b>처럼 보입니다. 시야가 다를 뿐 같은 프로세스입니다.' },
+      show: ['rt'],
+      set: { c3: { state: 'dim' }, c4: { state: 'dim' } },
+      focus: ['c1'],
+      tags: [
+        { on: 'rt', text: 'docker run 요청', icon: 'terminal' },
+        { on: 'c1', text: '안: PID 1', tone: 'info', pos: 'left' },
+        { on: 'kernel', text: '호스트: PID 4123', tone: 'accent', pos: 'right' },
+      ],
+      flows: [{ path: ['rt', 'c1'], kind: 'ctrl' }, { path: ['rt', 'c2'], kind: 'ctrl', delay: 0.4 }, { path: ['c1', 'kernel'], kind: 'req', delay: 1.2 }],
+      changes: [['+', '런타임: containerd · runc'], ['~', '컨테이너 = 격리된 프로세스']],
+      more: [
+        { title: '동작 원리', body: [
+          '명령은 <code>docker</code> CLI → Docker 엔진(<code>dockerd</code>) → <code>containerd</code> → <code>runc</code> 순으로 내려갑니다. CLI는 <code>/var/run/docker.sock</code> 소켓으로 엔진의 API를 부를 뿐이에요. runc는 OCI라는 표준 명세에 맞춰 namespace와 cgroup을 만들고, 앱을 실행한 뒤 종료합니다. 그 뒤로는 작은 shim 프로세스가 컨테이너의 입출력과 종료 코드를 지킵니다.',
+          '쿠버네티스도 같은 containerd · runc를 씁니다. 그래서 Docker로 만든 이미지가 쿠버네티스에서도 그대로 돕니다.',
+        ] },
+        { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker run -d --name api order-api:1.0\n$ docker inspect -f \'{{.State.Pid}}\' api\n4123\n$ ps -o pid,user,cmd -p 4123\n  PID USER   CMD\n 4123 root   node dist/server.js\n\n$ docker exec api ps\nPID   USER     COMMAND\n    1 root     node dist/server.js' } },
+        { title: '출력 읽기', body: [
+          '호스트의 <code>ps</code>에서 컨테이너 앱이 그대로 보이고, 사용자도 <code>root</code>로 찍힙니다. 컨테이너 안의 root는 (따로 설정하지 않으면) <b>호스트의 root와 같은 사용자 번호(UID 0)</b>입니다. 뒤에서 볼 격리 한계와 Dockerfile 레슨의 <code>USER</code>가 중요한 이유예요.',
+        ] },
+      ],
+    },
+    {
+      key: 'namespace', kind: 'concept', title: 'namespace: 보이는 것을 나눕니다',
+      body: [
+        '<b>namespace</b>는 프로세스가 <b>볼 수 있는 것</b>을 제한하는 커널 기능입니다. 프로세스 목록(PID), 네트워크(NET), 파일시스템(MNT), 호스트 이름(UTS) 등 종류마다 따로 있어요.',
+        '컨테이너 안의 앱은 자기 프로세스, 자기 네트워크 카드, 자기 파일만 봅니다. 그래서 두 컨테이너가 모두 3000번 포트를 써도 부딪히지 않고, 서버를 혼자 쓰는 것처럼 느낍니다.',
       ],
       callout: { type: 'key', text: 'Docker가 새 격리 기술을 발명한 것이 아닙니다. 커널에 이미 있던 namespace · cgroup을 <b>이미지</b>라는 포장과 묶어 쓰기 쉽게 만든 것입니다.' },
+      hide: ['rt'],
       show: ['ns'],
+      set: { c3: { state: null }, c4: { state: null } },
       focus: ['c3'],
       tags: [
-        { on: 'c3', text: 'namespace: 내 것만 보임', tone: 'info', icon: 'eye', pos: 'right', dy: -16 },
-        { on: 'c3', text: 'cgroup: 메모리 512MB', tone: 'warn', icon: 'gauge', pos: 'right', dy: 16 },
+        { on: 'c3', text: 'PID · NET · MNT 따로', tone: 'info', icon: 'eye', pos: 'right' },
+        { on: 'c1', text: ':3000', tone: 'mute', pos: 'left' },
+        { on: 'c4', text: ':3000 (충돌 없음)', tone: 'ok', pos: 'bottom' },
+      ],
+      more: [
+        { title: '종류별로', rows: [
+          ['PID', '프로세스 목록 · 안에서 PID 1부터', 'info'],
+          ['NET', '네트워크 장치 · IP · 포트 공간', 'info'],
+          ['MNT', '마운트 지점 · 보이는 파일 트리', 'info'],
+          ['UTS', '호스트 이름', 'info'],
+          ['IPC', '공유 메모리 · 세마포어', 'info'],
+          ['USER', 'UID 매핑 (Docker는 기본으로 안 씀)', 'warn'],
+        ] },
+        { title: '직접 해보기', body: ['Docker 없이도 <code>unshare</code>로 PID namespace를 만들어 볼 수 있습니다. 새 셸 안에서는 프로세스가 둘뿐입니다.'],
+          code: { title: 'terminal (Linux)', lang: 'sh', text: '$ sudo unshare --pid --fork --mount-proc bash\n# ps -e\n  PID TTY          TIME CMD\n    1 pts/0    00:00:00 bash\n    8 pts/0    00:00:00 ps\n\n$ ls -l /proc/4123/ns    # 호스트에서, 컨테이너 PID\nnet -> \'net:[4026532301]\'\npid -> \'pid:[4026532299]\'' } },
+        { title: '흔한 실수', list: [
+          '<code>--network host</code>, <code>--pid host</code>는 해당 namespace를 <b>호스트와 공유</b>합니다. 편하지만 그만큼 격리가 사라집니다.',
+          '디버깅할 때는 <code>nsenter -t 4123 -n ss -lntp</code>처럼 호스트에서 컨테이너의 네트워크 namespace에 들어가 볼 수 있습니다. 이미지에 도구가 없어도 됩니다.',
+        ] },
+      ],
+    },
+    {
+      key: 'cgroup', kind: 'concept', title: 'cgroup: 쓸 수 있는 양을 나눕니다',
+      body: [
+        '<b>cgroup</b>은 프로세스 묶음이 <b>쓸 수 있는 양</b>을 제한합니다. <code>docker run --memory 512m --cpus 1</code>처럼 주면 그 컨테이너는 메모리 512 MB, CPU 1개 분량까지만 씁니다.',
+        '넘으면 결과가 다릅니다. CPU는 한도에서 <b>느려지고</b>(throttling) 끝나지는 않지만, 메모리는 한도를 넘기면 커널이 그 컨테이너의 프로세스를 <b>강제 종료</b>합니다.',
+      ],
+      callout: { type: 'warn', text: 'Docker는 기본값이 <b>한도 없음</b>입니다. 옵션을 주지 않으면 컨테이너 하나가 호스트의 메모리와 CPU를 전부 쓸 수 있어요.' },
+      hide: ['ns'],
+      set: { c1: { badge: '512 MB' }, c2: { badge: '256 MB' }, c3: { badge: '1 GB' } },
+      tags: [
+        { on: 'c3', text: '--cpus 1 → 느려질 뿐', tone: 'info', icon: 'gauge', pos: 'right' },
+        { on: 'c4', text: '한도 없음', tone: 'warn', icon: 'warn', pos: 'bottom' },
+      ],
+      metrics: { dens: ['4개 · 한도 3개', 'warn'] },
+      changes: [['+', '컨테이너 3개에 메모리 한도'], ['~', '앱 D는 아직 무제한']],
+      more: [
+        { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker run -d --name api \\\n    --memory 512m --cpus 1 --pids-limit 200 \\\n    order-api:1.0\n\n$ docker stats --no-stream api\nNAME  CPU %   MEM USAGE / LIMIT   MEM %   PIDS\napi   3.12%   148MiB / 512MiB     28.9%   11\n\n$ docker exec api cat /sys/fs/cgroup/memory.max\n536870912' } },
+        { title: '출력 읽기', body: [
+          '<code>LIMIT</code>이 호스트 전체 메모리 대신 512MiB로 바뀌었다면 한도가 걸린 것입니다. 한도는 cgroup v2 기준 <code>memory.max</code>, <code>cpu.max</code> 같은 파일에 기록되고, 커널이 그 값을 지킵니다.',
+          '<code>--pids-limit</code>는 프로세스 수 상한입니다. 프로세스를 끝없이 만드는 버그(포크 폭탄)가 호스트 전체를 멈추는 것을 막아 줍니다.',
+        ] },
+        { title: '실무 팁', list: [
+          '한도는 평소 사용량이 아니라 <b>최대치 + 여유</b>로 잡습니다. <code>docker stats</code>로 피크를 먼저 관찰하세요.',
+          '앱 런타임에도 알려 줘야 합니다. Node는 <code>--max-old-space-size</code>, JVM은 <code>-XX:MaxRAMPercentage</code>로 힙을 한도 안쪽에 맞춥니다.',
+          '쿠버네티스에서는 같은 일을 requests · limits가 합니다(7장 스케줄링 레슨).',
+        ] },
+      ],
+    },
+    {
+      key: 'OOM 사례', kind: 'case', title: '사례: 한 컨테이너가 이웃을 죽였습니다',
+      body: [
+        '새벽마다 정산 배치(앱 B)가 이유 없이 재시작됐습니다. 범인은 한도 없이 띄운 앱 D였어요. 메모리가 새면서 호스트 메모리가 바닥나자, 커널의 <b>OOM killer</b>가 프로세스를 골라 죽였는데 그중에 옆의 앱 B가 걸렸습니다.',
+        '앱 B의 로그에는 아무 오류도 없었습니다. 단서는 호스트 커널 로그(<code>dmesg</code>)의 <code>Out of memory: Killed process</code>와 종료 코드 <code>137</code>이었어요.',
+      ],
+      callout: { type: 'tip', text: '해결은 모든 컨테이너에 <code>--memory</code>를 거는 것입니다. 한도가 있으면 넘친 컨테이너 <b>자기만</b> 종료되고 이웃은 무사합니다.' },
+      set: { c4: { state: 'hot', badge: '메모리 누수', tone: 'bad' }, c2: { state: 'down' }, kernel: { state: 'hot' } },
+      focus: ['c4'],
+      tags: [
+        { on: 'kernel', text: 'OOM killer', tone: 'bad', icon: 'siren' },
+        { on: 'c2', text: '죄 없이 종료 (137)', tone: 'bad', icon: 'x', pos: 'right' },
+      ],
+      flows: [{ path: ['c4', 'kernel'], kind: 'req', n: 3 }, { path: ['kernel', 'c2'], kind: 'bad', n: 2, delay: 1.2 }],
+      metrics: { dens: ['이웃 1개 다운', 'bad'] },
+      changes: [['-', '앱 B: 호스트 OOM으로 종료'], ['~', '원인은 한도 없는 앱 D']],
+      more: [
+        { title: '증상에서 원인까지', code: { title: 'terminal', lang: 'sh', text: '$ docker ps -a --format \'{{.Names}} {{.Status}}\'\nbatch  Exited (137) 3 minutes ago\n\n$ docker inspect -f \'{{.State.OOMKilled}}\' batch\nfalse\n\n$ sudo dmesg -T | grep -i "killed process"\nOut of memory: Killed process 2314 (node)\n  anon-rss:1803264kB …' } },
+        { title: '출력 읽기', body: [
+          '<code>137</code>은 128 + 9, 즉 <b>SIGKILL</b>로 강제 종료됐다는 뜻입니다. <code>OOMKilled</code>가 <code>true</code>면 그 컨테이너가 <b>자기 한도</b>를 넘긴 것이고, 이번처럼 <code>false</code>인데 137이면 호스트 전체 OOM이나 누군가의 <code>kill -9</code>를 의심합니다.',
+          '그래서 "137이면 메모리를 늘린다"는 반쪽 대응입니다. 누가 메모리를 먹었는지는 <code>docker stats</code>와 커널 로그로 따로 확인해야 해요.',
+        ] },
+        { title: '고친 뒤의 모습', list: [
+          '모든 컨테이너에 <code>--memory</code>를 겁니다. 그러면 앱 D만 <code>OOMKilled: true</code>로 끝나고, 범인이 로그에 바로 드러납니다.',
+          '<code>--restart unless-stopped</code>로 죽은 컨테이너를 다시 살리되, 재시작 횟수를 모니터링해 누수를 고칩니다.',
+          '호스트 자체에도 여유 메모리를 남겨 dockerd와 에이전트가 함께 쓰러지지 않게 합니다.',
+        ] },
       ],
     },
     {
@@ -160,8 +324,9 @@ export default {
         'Node 20이 이미지 안에 들어 있으니 서버에 무엇이 깔려 있든 상관없습니다. 개발 PC에서 돌려 본 바로 그 이미지를 테스트·운영 서버에서 그대로 실행합니다.',
       ],
       callout: { type: 'key', text: '"내 PC에선 되는데요"의 해법은 환경을 맞추는 것이 아니라 <b>환경을 함께 배송하는 것</b>입니다.' },
-      hide: ['chost', 'kernel', 'c1', 'c2', 'c3', 'c4', 'ns'],
+      hide: ['chost', 'kernel', 'c1', 'c2', 'c3', 'c4'],
       show: ['dev', 'img', 'r1', 'r2', 'r3'],
+      set: { c1: { badge: null }, c2: { state: null, badge: null }, c3: { badge: null }, c4: { state: null, badge: null }, kernel: { state: null } },
       focus: ['img'],
       tags: [{ on: 'img', text: '앱 + Node 20 + 의존성', tone: 'accent' }, { on: 'r2', text: '같은 이미지, 같은 동작', tone: 'ok', icon: 'check', pos: 'right' }],
       flows: [
@@ -169,12 +334,21 @@ export default {
         { path: ['img', 'r1'], kind: 'build', delay: 1 }, { path: ['img', 'r2'], kind: 'build', delay: 1.2 }, { path: ['img', 'r3'], kind: 'build', delay: 1.4 },
       ],
       changes: [['+', '이미지: 읽기 전용 틀'], ['+', '컨테이너: 이미지의 실행 인스턴스'], ['~', '환경 차이 → 없음']],
+      more: [
+        { title: '"어디서나"의 조건', body: [
+          '이미지가 실어 나르지 <b>못하는</b> 것이 두 가지 있습니다. 하나는 <b>커널</b>이고, 다른 하나는 <b>CPU 아키텍처</b>예요. 이미지 속 실행 파일은 특정 CPU용 기계어라서, Apple Silicon Mac(arm64)에서 빌드한 이미지를 x86 서버(amd64)에서 돌리면 바로 죽습니다.',
+        ] },
+        { title: '흔한 실수와 해결', code: { title: 'terminal (amd64 서버)', lang: 'sh', text: '$ docker run order-api:1.0\nexec /usr/local/bin/node: exec format error\n\n$ docker image inspect order-api:1.0 \\\n    -f \'{{.Os}}/{{.Architecture}}\'\nlinux/arm64\n\n# 해결: 두 아키텍처용으로 함께 빌드\n$ docker buildx build \\\n    --platform linux/amd64,linux/arm64 \\\n    -t reg.example.com/shop/api:1.0 --push .' } },
+        { title: '더 알아보기', body: [
+          '이미지 형식은 <b>OCI</b>라는 표준으로 정해져 있어, Docker로 만든 이미지를 Podman이나 쿠버네티스의 containerd도 그대로 실행합니다. 이미지가 정확히 어떻게 생겼는지, 왜 "읽기 전용"인지는 다음 레슨(이미지와 레이어)에서 레이어를 한 장씩 뜯어 보며 다룹니다.',
+        ] },
+      ],
     },
     {
       key: '격리의 한계', kind: 'case', title: '사례: 컨테이너는 VM이 아닙니다',
       body: [
         '한 팀이 디버깅이 편하다는 이유로 컨테이너를 <code>--privileged</code>로 띄웠습니다. 이 옵션은 격리를 대부분 풀어 버립니다. 앱이 뚫리자 공격자는 <b>호스트의 root</b>가 되었고, 같은 서버의 다른 컨테이너로 넘어갔습니다.',
-        '옵션을 쓰지 않아도 한계는 있습니다. 모든 컨테이너가 같은 커널을 부르므로, 커널이나 런타임에 취약점이 생기면 벽이 한꺼번에 뚫립니다. 런타임 runc에서 탈출 취약점이 보고된 적도 있습니다.',
+        '옵션을 쓰지 않아도 한계는 있습니다. 모든 컨테이너가 같은 커널을 부르므로, 커널이나 런타임에 취약점이 생기면 벽이 한꺼번에 뚫립니다.',
       ],
       callout: { type: 'warn', text: '서로 믿지 못하는 워크로드를 컨테이너만으로 나누지 마세요. <code>--privileged</code>, root 실행, <code>docker.sock</code> 마운트는 꼭 필요할 때만 씁니다.' },
       hide: ['dev', 'img', 'r1', 'r2', 'r3'],
@@ -187,29 +361,90 @@ export default {
       ],
       metrics: { iso: ['커널 공유 = 약함', 'bad'] },
       changes: [['-', '앱 A의 격리 (--privileged)'], ['~', '커널이 뚫리면 전부 위험']],
+      more: [
+        { title: '--privileged가 푸는 것', list: [
+          '커널 권한을 잘게 나눈 <b>capability</b>를 전부 줍니다(<code>CAP_SYS_ADMIN</code> 포함). 기본 컨테이너는 이 중 일부만 받습니다.',
+          '호스트의 <b>장치</b>(<code>/dev</code>의 디스크 등)를 모두 보여 줍니다. 호스트 디스크를 마운트하면 호스트 파일을 그대로 고칠 수 있어요.',
+          '위험한 시스템 콜을 막는 seccomp 필터와 AppArmor/SELinux 제한을 끕니다.',
+        ] },
+        { title: '똑같이 위험한 것', body: [
+          '<code>-v /var/run/docker.sock:/var/run/docker.sock</code>은 컨테이너에 Docker 엔진의 리모컨을 쥐여 주는 것입니다. 그 소켓으로 <code>--privileged</code> 컨테이너를 새로 띄우면 끝이라, 사실상 호스트 root와 같아요. CI 도구나 모니터링 에이전트가 이걸 요구한다면 꼭 필요한지 따져 보세요.',
+          '런타임 자체의 버그도 있습니다. 2019년 runc 취약점(CVE-2019-5736)은 악성 컨테이너가 호스트의 runc 실행 파일을 덮어쓸 수 있게 했습니다. 호스트의 Docker · containerd · 커널 패치가 컨테이너 보안의 일부인 이유예요.',
+        ] },
+        { title: '점검 명령', code: { title: 'terminal', lang: 'sh', text: '$ docker inspect -f \\\n  \'{{.Name}} {{.HostConfig.Privileged}}\' \\\n  $(docker ps -q)\n/api true      # ← 이유를 설명할 수 있어야 함\n/batch false' } },
+      ],
+    },
+    {
+      key: '단단하게', kind: 'solution', title: '컨테이너를 단단하게 띄우는 옵션',
+      body: [
+        '격리를 VM만큼 만들 수는 없어도, 뚫렸을 때의 피해는 크게 줄일 수 있습니다. 원칙은 <b>필요한 만큼만 주기</b>예요. root가 아닌 사용자로, capability는 모두 빼고, 파일시스템은 읽기 전용으로 띄웁니다.',
+        '그래도 남에게 받은 코드를 돌려야 한다면, 컨테이너마다 얇은 커널 경계를 더하는 <b>샌드박스 런타임</b>(gVisor, Kata Containers 등)을 씁니다.',
+      ],
+      callout: { type: 'tip', text: '이미지 쪽에서 할 일(non-root <code>USER</code>, 작은 베이스 이미지)은 Dockerfile 레슨에서 다룹니다. 여기서는 <b>실행할 때</b> 거는 옵션입니다.' },
+      set: {
+        c1: { state: 'ok', badge: null, icon: 'shield-check', sub: 'non-root · RO' },
+        kernel: { state: null },
+      },
+      focus: ['c1'],
+      tags: [
+        { on: 'c1', text: 'cap-drop ALL', tone: 'ok', icon: 'lock', pos: 'left' },
+        { on: 'kernel', text: 'seccomp가 콜 제한', tone: 'info', icon: 'funnel', pos: 'right' },
+      ],
+      flows: [{ path: ['c1', 'kernel'], kind: 'req', n: 2 }, { path: ['c3', 'kernel'], kind: 'req', delay: 0.6 }],
+      metrics: { iso: ['커널 공유 + 최소 권한', 'warn'] },
+      changes: [['+', 'non-root · capability 제거'], ['+', '읽기 전용 루트 파일시스템'], ['-', '--privileged']],
+      more: [
+        { title: '설정 예시', code: { title: 'terminal', lang: 'sh', text: '$ docker run -d --name api \\\n    --user 1000:1000 \\\n    --cap-drop ALL \\\n    --read-only --tmpfs /tmp \\\n    --security-opt no-new-privileges \\\n    --memory 512m --pids-limit 200 \\\n    order-api:1.0' } },
+        { title: '한 줄씩 읽기', list: [
+          '<code>--user</code>: UID 0이 아닌 사용자로 실행합니다. 뚫려도 호스트의 root가 아닙니다.',
+          '<code>--cap-drop ALL</code>: capability를 모두 뺍니다. 1024 아래 포트를 열어야 하면 <code>--cap-add NET_BIND_SERVICE</code>만 다시 줍니다.',
+          '<code>--read-only</code> + <code>--tmpfs /tmp</code>: 공격자가 도구를 내려받아 심을 곳을 없애고, 꼭 필요한 임시 폴더만 메모리에 둡니다.',
+          '<code>no-new-privileges</code>: setuid 프로그램 등으로 권한을 다시 올리는 길을 막습니다.',
+        ] },
+        { title: '한 단계 더', body: [
+          'Docker를 root 없이 돌리는 <b>rootless 모드</b>나, 컨테이너의 root를 호스트의 일반 UID로 바꿔 주는 <b>user namespace</b>(<code>userns-remap</code>)도 있습니다. 더 강한 경계가 필요하면 gVisor(커널 역할을 사용자 공간에서 대신)나 Kata Containers(컨테이너마다 초경량 VM)를 런타임으로 끼웁니다. GKE Sandbox가 gVisor를 쓰는 대표적인 예입니다.',
+        ] },
+      ],
     },
     {
       key: 'VM + 컨테이너', kind: 'compare', title: '실전에서는 둘을 겹쳐 씁니다',
       body: [
         '둘은 경쟁 관계가 아닙니다. <b>VM은 강한 경계</b>(다른 고객, 다른 보안 등급)를 맡고, <b>컨테이너는 가볍고 어디서나 똑같은 배포 단위</b>를 맡습니다.',
-        '그래서 클라우드에서는 VM을 빌리고 그 안에서 컨테이너 여러 개를 돌리는 구조가 표준입니다. 하이퍼바이저는 사업자 몫이라 우리 눈에는 보이지 않아요. 여러분이 써 본 Lambda도 안쪽에서는 초경량 VM으로 고객 사이를 나눕니다.',
+        '그래서 클라우드에서는 VM을 빌리고 그 안에서 컨테이너 여러 개를 돌리는 구조가 표준입니다. 하이퍼바이저는 사업자 몫이라 우리 눈에는 보이지 않아요. Lambda도 안쪽에서는 초경량 VM(Firecracker)으로 고객 사이를 나눕니다.',
       ],
       callout: { type: 'cloud', text: 'EC2 · Azure VM · Compute Engine · NCP Server 위에 컨테이너를 올리는 구조는 네 클라우드 모두 같습니다. 관리형 쿠버네티스(EKS · AKS · GKE · NKS)의 워커 노드도 결국 VM입니다.' },
       hide: ['chost', 'kernel', 'c1', 'c2', 'c3', 'c4'],
       show: ['vm1', 'vm2', 'gos1', 'gos2', 'a1', 'a2'],
       set: {
+        c1: { state: null, icon: 'container', sub: 'Node 20' },
         gos1: { state: null, sub: '커널 + Docker' }, gos2: { state: null, sub: '커널 + Docker' },
         a1: { label: '컨테이너', sub: '팀 A · 여러 개', icon: 'boxes', color: 'teal' }, a2: { label: '컨테이너', sub: '팀 B · 여러 개', icon: 'boxes', color: 'teal' },
         vm1: { label: 'VM 1 · 강한 경계' }, vm2: { label: 'VM 2 · 강한 경계' },
       },
       panel: { title: 'VM vs 컨테이너', icon: 'scale', rows: [['VM · 격리', '게스트 OS까지 분리', 'info'], ['VM · 무게', '수 GB · 부팅 수십 초~', 'info'], ['컨테이너 · 격리', '커널 공유', 'accent'], ['컨테이너 · 무게', '수십 MB~ · 1초 안팎', 'accent']] },
       metrics: { boot: '1초 안팎', size: '수십 MB~', dens: 'VM 2대 × 여러 개', iso: ['VM + 컨테이너', 'ok'] },
+      more: [
+        { title: '클라우드별로', rows: [
+          ['AWS', 'EC2 위 Docker · ECS · EKS · Fargate', 'aws'],
+          ['Azure', 'VM 위 Docker · AKS · Container Apps', 'azure'],
+          ['GCP', 'Compute Engine · GKE · Cloud Run', 'gcp'],
+          ['NCP', 'Server 위 Docker · NKS', 'ncp'],
+        ] },
+        { title: '어떻게 고를까', list: [
+          '<b>VM에 Docker를 직접</b>: 가장 단순하고 싸지만, OS 패치와 컨테이너 재시작을 직접 챙깁니다.',
+          '<b>관리형 쿠버네티스</b>(EKS · AKS · GKE · NKS): 여러 서버에 컨테이너를 배치·복구해 주지만, 클러스터 운영을 배워야 합니다(7장).',
+          '<b>서버리스 컨테이너</b>(Fargate, Container Apps, Cloud Run): VM이 아예 안 보이고 컨테이너 단위로 과금합니다. 사업자가 고객 사이에 VM급 경계를 둡니다.',
+        ] },
+        { title: '더 생각해 볼 것', body: [
+          '"VM 한 대에 어느 팀의 컨테이너를 같이 둘까"는 보안 등급으로 정합니다. 같은 팀 · 같은 등급의 서비스는 한 VM(노드)에 모으고, 결제처럼 민감한 서비스나 외부 코드를 돌리는 서비스는 노드나 VM을 따로 둡니다.',
+        ] },
+      ],
     },
     {
       key: '정리', kind: 'recap', title: '정리: 가벼운 이유와 그 대가',
       body: [
-        '컨테이너가 VM보다 가벼운 이유는 하나입니다. <b>OS를 복사하지 않고 호스트 커널을 함께 쓰기</b> 때문이에요. 격리는 namespace(보이는 것)와 cgroup(쓰는 양)이 맡고, 그 대가로 경계는 VM보다 약합니다.',
-        '그리고 이미지가 환경을 통째로 실어 나르기 때문에 "내 PC에선 되는데요"가 사라집니다. 다음 레슨에서는 그 <b>이미지</b>의 속, 레이어를 들여다봅니다.',
+        '컨테이너는 호스트 커널 위의 <b>격리된 프로세스</b>입니다. namespace가 보이는 것을, cgroup이 쓰는 양을 나누고, OS를 복사하지 않으니 가볍고 빠릅니다. 대가로 경계는 VM보다 약하니 최소 권한으로 띄우고, 강한 경계는 VM에 맡깁니다.',
+        '이미지가 환경을 통째로 실어 나르기 때문에 "내 PC에선 되는데요"가 사라집니다. 다음 레슨에서는 그 <b>이미지</b>의 속, 레이어를 들여다봅니다.',
       ],
       focus: ['a1', 'a2'],
     },
@@ -217,27 +452,87 @@ export default {
   quiz: [
     {
       q: '컨테이너가 VM보다 훨씬 빨리 시작하는 근본적인 이유는?',
-      options: ['이미지가 VM 이미지보다 더 잘 압축되어 있어서', '게스트 OS를 부팅하지 않고, 호스트 커널 위에서 프로세스로 바로 뜨기 때문에', '하이퍼바이저가 컨테이너에 CPU를 우선 배정해서', '컨테이너는 항상 메모리에 미리 올라가 있어서'],
-      answer: 1,
+      options: ['이미지가 VM 이미지보다 더 잘 압축되어 있어서', '하이퍼바이저가 컨테이너에 CPU를 우선 배정해서', '컨테이너는 항상 메모리에 미리 올라가 있어서', '게스트 OS를 부팅하지 않고, 호스트 커널 위에서 프로세스로 바로 뜨기 때문에'],
+      answer: 3,
+      step: 5,
       why: '컨테이너는 격리된 프로세스입니다. 부팅할 OS가 없으니 프로세스 시작 시간만 걸립니다. 압축률이나 CPU 우선순위와는 관계가 없고, 컨테이너에는 하이퍼바이저가 끼지도 않습니다.',
     },
     {
-      q: 'Ubuntu 서버에서 Alpine Linux 기반 이미지를 컨테이너로 실행했습니다. 이 컨테이너가 쓰는 커널은?',
-      options: ['이미지에 들어 있는 Alpine 커널', '호스트인 Ubuntu 서버의 커널', 'Docker Engine에 내장된 전용 커널', '컨테이너마다 새로 부팅되는 경량 커널'],
-      answer: 1,
-      why: '이미지에는 라이브러리·런타임 같은 사용자 공간 파일만 들어 있고 커널은 없습니다. 모든 컨테이너는 호스트의 커널을 함께 씁니다. 그래서 가볍고, 그래서 격리가 VM보다 약합니다.',
+      q: 'Ubuntu 서버에서 Alpine Linux 기반 이미지를 컨테이너로 실행하고 안에서 uname -r을 쳤습니다. 무엇이 나올까요?',
+      options: ['호스트인 Ubuntu 서버의 커널 버전', 'Alpine 이미지에 들어 있는 커널 버전', 'Docker Engine에 내장된 전용 커널 버전', '컨테이너마다 새로 부팅되는 경량 커널 버전'],
+      answer: 0,
+      step: 5,
+      why: '이미지에는 라이브러리·런타임 같은 사용자 공간 파일만 들어 있고 커널은 없습니다. 모든 컨테이너는 호스트의 커널을 함께 쓰므로 호스트의 버전이 나옵니다. 이것이 가벼움의 이유이자 격리가 VM보다 약한 이유입니다.',
     },
     {
       q: '서로 모르는 고객들이 올린 코드를 대신 실행해 주는 서비스를 만듭니다. 고객 사이의 경계로 가장 적절한 것은?',
-      options: ['컨테이너 하나에 고객별 프로세스를 나눠 실행', '고객별 컨테이너 + cgroup 메모리 제한', '고객별 VM(또는 초경량 VM)을 두고 그 안에서 컨테이너 실행', '고객별 컨테이너를 --privileged로 실행해 관리 편의 확보'],
+      options: ['컨테이너 하나에 고객별 프로세스를 나눠 실행', '고객별 컨테이너 + cgroup 메모리 제한', '고객별 VM(또는 초경량 VM · 샌드박스 런타임)을 두고 그 안에서 실행', '고객별 컨테이너를 --privileged로 실행해 관리 편의 확보'],
       answer: 2,
-      why: '믿을 수 없는 코드 사이에는 커널을 공유하지 않는 경계가 필요합니다. cgroup은 자원 사용량만 막을 뿐 커널 취약점을 막지 못하고, --privileged는 격리를 오히려 풀어 버립니다.',
+      step: 13,
+      why: '믿을 수 없는 코드 사이에는 커널을 공유하지 않는 경계가 필요합니다. cgroup은 자원 사용량만 막을 뿐 커널 취약점을 막지 못하고, --privileged는 격리를 오히려 풀어 버립니다. Lambda가 Firecracker 마이크로VM을 쓰는 것도 같은 이유입니다.',
     },
     {
       q: '한 서버에서 컨테이너 하나가 메모리를 끝없이 먹어, 옆 컨테이너들까지 죽었습니다. 무엇이 빠져 있었을까요?',
-      options: ['PID namespace', 'cgroup 메모리 상한', '더 작은 베이스 이미지', '게스트 OS'],
+      options: ['PID namespace', '더 작은 베이스 이미지', '컨테이너마다의 cgroup 메모리 상한', '게스트 OS'],
+      answer: 2,
+      step: 9,
+      why: 'namespace는 보이는 것을, cgroup은 쓰는 양을 제한합니다. Docker는 기본값이 한도 없음이라, 상한을 걸지 않은 컨테이너는 호스트 메모리를 전부 쓸 수 있고 결국 호스트 OOM killer가 엉뚱한 이웃을 죽입니다. 이미지 크기는 실행 중 메모리 사용량과 다른 문제입니다.',
+    },
+    {
+      q: '컨테이너가 Exited (137)로 끝났고, docker inspect의 OOMKilled는 false입니다. 가장 먼저 의심할 것은?',
+      options: ['호스트 전체의 메모리 부족(호스트 OOM)이나 외부에서 보낸 SIGKILL', '컨테이너 자신의 --memory 한도 초과', '애플리케이션 코드의 문법 오류', '이미지의 CPU 아키텍처 불일치'],
+      answer: 0,
+      step: 9,
+      why: '137은 SIGKILL로 강제 종료됐다는 뜻입니다. 자기 한도를 넘긴 경우라면 OOMKilled가 true로 남습니다. false라면 호스트 전체 OOM이나 kill -9를 의심하고 dmesg를 봅니다. 문법 오류는 보통 종료 코드 1이고, 아키텍처 불일치는 시작하자마자 exec format error를 냅니다.',
+    },
+    {
+      q: 'CPU를 많이 쓰는 컨테이너에 --cpus 0.5를 걸었습니다. 부하가 몰리면 어떻게 될까요?',
+      options: ['한도를 넘는 순간 커널이 컨테이너를 강제 종료한다', '한도 안에서 느려질 뿐 종료되지는 않는다(throttling)', 'Docker가 자동으로 한도를 늘려 준다', '옆 컨테이너의 CPU를 빌려 계속 같은 속도로 돈다'],
       answer: 1,
-      why: 'namespace는 "보이는 것"을, cgroup은 "쓰는 양"을 제한합니다. 메모리 상한을 걸지 않은 컨테이너는 호스트 메모리를 전부 쓸 수 있습니다. 이미지 크기는 실행 중 메모리 사용량과 다른 문제입니다.',
+      step: 8,
+      why: 'CPU 한도는 쓸 수 있는 시간을 잘라 주는 방식이라, 넘치면 기다리게 만들어 느려집니다. 강제 종료는 메모리 한도를 넘었을 때의 동작입니다. 한도는 자동으로 늘어나지 않습니다.',
+    },
+    {
+      q: 'Apple Silicon Mac에서 빌드한 이미지를 x86 클라우드 VM에서 실행했더니 exec format error가 납니다. 알맞은 조치는?',
+      options: ['VM의 Docker를 최신 버전으로 재설치한다', '이미지를 더 작은 베이스로 다시 빌드한다', '컨테이너를 --privileged로 실행한다', 'docker buildx로 linux/amd64(필요하면 arm64도)용 이미지를 빌드한다'],
+      answer: 3,
+      step: 10,
+      why: '이미지는 환경을 실어 나르지만 실행 파일은 특정 CPU용 기계어입니다. arm64용 이미지는 amd64 커널에서 실행되지 않으므로 대상 플랫폼용으로 빌드해야 합니다. Docker 버전, 베이스 크기, 권한은 이 오류와 관계가 없습니다.',
+    },
+    {
+      q: '호스트에서 ps를 쳤더니 컨테이너 안의 앱이 USER root로 보입니다. 이것이 의미하는 바로 가장 정확한 것은?',
+      options: ['ps가 컨테이너 사용자를 잘못 표시하는 버그다', '컨테이너 안의 root는 이름만 같고 호스트와는 무관한 사용자다', '따로 설정하지 않으면 컨테이너의 root는 호스트와 같은 UID 0이라, 탈출하면 호스트 root가 된다', '컨테이너가 호스트 네트워크를 공유하고 있다는 뜻이다'],
+      answer: 2,
+      step: 6,
+      why: '컨테이너는 호스트의 평범한 프로세스이고, user namespace를 쓰지 않는 기본 설정에서는 UID도 호스트와 같습니다. 그래서 non-root USER나 --user, rootless · userns-remap이 의미가 있습니다. 네트워크 공유 여부와는 별개입니다.',
+    },
+    {
+      q: '모니터링 에이전트 설치 문서가 -v /var/run/docker.sock:/var/run/docker.sock 마운트를 요구합니다. 어떻게 판단해야 할까요?',
+      options: ['읽기 전용(:ro)으로 붙이면 위험이 사라지므로 그냥 쓴다', '소켓 접근은 사실상 호스트 root 권한이므로, 꼭 필요한지 따지고 신뢰할 수 있는 에이전트에만 준다', '컨테이너 내부 통신용이라 보안과 무관하다', '--privileged를 함께 주면 오히려 안전해진다'],
+      answer: 1,
+      step: 11,
+      why: 'Docker 소켓으로는 새 privileged 컨테이너를 띄울 수 있어 호스트를 장악할 수 있습니다. :ro는 소켓 파일 자체에 대한 쓰기만 막을 뿐 API 호출은 그대로 가능합니다. 그러니 필요성과 신뢰도를 따져서만 줘야 합니다.',
+    },
+    {
+      q: '웹 앱 컨테이너를 공격당해도 피해를 줄이고 싶습니다. 실행 옵션으로 가장 알맞은 조합은?',
+      options: ['--user 1000 · --cap-drop ALL · --read-only · no-new-privileges', '--privileged · --network host', '--memory 0 · --cpus 0으로 한도 해제', '-v /:/host로 호스트를 마운트해 로그를 바로 남김'],
+      answer: 0,
+      step: 12,
+      why: '최소 권한 원칙대로 일반 사용자, capability 제거, 읽기 전용 파일시스템, 권한 상승 차단을 함께 겁니다. privileged와 host 네트워크는 격리를 풀고, 호스트 루트 마운트는 탈출 경로를 직접 열어 줍니다.',
+    },
+    {
+      q: '두 컨테이너가 모두 안에서 3000번 포트를 쓰는데 같은 호스트에서 충돌 없이 떴습니다. 어떤 기능 덕분일까요?',
+      options: ['cgroup의 CPU 한도', '컨테이너마다 따로인 NET namespace', '이미지 레이어 공유', '하이퍼바이저의 가상 NIC'],
+      answer: 1,
+      step: 7,
+      why: 'NET namespace가 컨테이너마다 네트워크 장치와 포트 공간을 따로 줍니다. 그래서 안에서는 같은 포트를 써도 부딪히지 않습니다. 바깥에서 들어오게 할 때만 호스트 포트를 서로 다르게 잡으면 됩니다(네트워크 레슨). 컨테이너에는 하이퍼바이저가 없습니다.',
+    },
+    {
+      q: '사내 서비스 30개를 앱마다 VM 한 대씩으로 돌리는데, VM 대부분의 CPU 사용률이 5% 안팎입니다. 가장 먼저 검토할 방향은?',
+      options: ['VM마다 CPU를 두 배로 늘린다', '모든 서비스를 한 VM에 컨테이너 없이 함께 설치한다', 'VM 수를 줄이고, 같은 보안 등급의 서비스를 컨테이너로 묶어 몇 대의 VM에 모은다', '하이퍼바이저를 Type 2로 바꾼다'],
+      answer: 2,
+      step: 4,
+      why: '앱마다 게스트 OS를 올리면 비용 대부분이 OS에 들어갑니다. 컨테이너로 묶으면 격리를 지키면서 밀도를 높일 수 있습니다. 컨테이너 없이 한 OS에 모으면 의존성 충돌이 다시 생기고, CPU를 늘리는 것은 낭비를 키웁니다.',
     },
   ],
 };

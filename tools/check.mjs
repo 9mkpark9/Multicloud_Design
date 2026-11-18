@@ -59,7 +59,7 @@ for (const ch of CHAPTERS) {
       if (L.id !== id) E.push(`file name "${file}" does not match id "${L.id}"`);
       if (!meta) E.push(`id "${L.id}" is not in curriculum.js`);
       else if (meta.chapter.id !== ch.id) E.push(`belongs in ${meta.chapter.id}/, found in ${ch.id}/`);
-      checkLesson(L, E, W);
+      checkLesson(L, E, W, ch);
     }
     errors += E.length;
     warnings += W.length;
@@ -78,7 +78,10 @@ if (!only.length) {
 console.log(`\n${errors} error(s), ${warnings} warning(s)`);
 process.exit(errors ? 1 : 0);
 
-function checkLesson(L, E, W) {
+// Chapters still ahead of the learner (phase 'next') are written in depth: more steps,
+// a "더 알아보기" deep dive on every step and a large question bank.
+function checkLesson(L, E, W, ch = {}) {
+  const deep = ch.phase === 'next';
   const sc = L.scene || {};
   const nodes = sc.nodes || {};
   const zones = sc.zones || {};
@@ -118,7 +121,8 @@ function checkLesson(L, E, W) {
   }
   for (const [name, c] of Object.entries(L.codes || {})) checkCode(`codes.${name}`, c, E, W);
 
-  if (!Array.isArray(L.steps) || L.steps.length < 6 || L.steps.length > 12) E.push(`steps: needs 6–12, has ${L.steps?.length ?? 0}`);
+  if (!Array.isArray(L.steps) || L.steps.length < 6 || L.steps.length > 15) E.push(`steps: needs 6–15, has ${L.steps?.length ?? 0}`);
+  else if (deep && L.steps.length < 12) W.push(`steps: in-depth chapters use 12–15 steps, has ${L.steps.length}`);
   const vis = new Set();
   const edgeOff = new Set(Object.entries(edges).filter(([, e]) => e.off).map(([id]) => id));
   const patch = {};
@@ -187,6 +191,8 @@ function checkLesson(L, E, W) {
       }
     });
 
+    if (st.more !== undefined) checkMore(at, st.more, E, W);
+    else if (deep && st.kind !== 'recap') W.push(`${at}: in-depth chapters give every step a "more" deep dive`);
     if (st.code) checkCode(`${at}: code`, st.code.ref ? { ...(L.codes || {})[st.code.ref], ...st.code } : st.code, E, W, st.code.ref && !(L.codes || {})[st.code.ref] ? `ref "${st.code.ref}" not in lesson.codes` : '');
     if (st.panel) {
       if (!Array.isArray(st.panel.rows) || !st.panel.rows.length) E.push(`${at}: panel.rows missing`);
@@ -258,11 +264,45 @@ function checkLesson(L, E, W) {
   });
 
   if (!Array.isArray(L.quiz) || L.quiz.length < 3) E.push('quiz: needs at least 3 questions');
+  else if (deep && L.quiz.length < 10) W.push(`quiz: in-depth chapters have 10–15 questions, has ${L.quiz.length}`);
+  const answers = [0, 0, 0, 0];
   (L.quiz || []).forEach((q, i) => {
     if (!q.q || !Array.isArray(q.options) || q.options.length !== 4) E.push(`quiz ${i + 1}: needs q and exactly 4 options`);
     if (!(q.answer >= 0 && q.answer < 4)) E.push(`quiz ${i + 1}: answer must be 0–3`);
+    else answers[q.answer]++;
     if (!q.why) E.push(`quiz ${i + 1}: why (the explanation) is missing`);
+    if (q.step !== undefined && !(Number.isInteger(q.step) && q.step >= 1 && q.step <= (L.steps || []).length)) E.push(`quiz ${i + 1}: step must be a step number 1–${(L.steps || []).length}`);
+    if (deep && q.step === undefined) W.push(`quiz ${i + 1}: give "step", the step that teaches the answer`);
+    if (/<\/?(b|code|em|i|br|p|span|a|strong)[ >]/i.test(`${q.q}${(q.options || []).join('')}${q.why}`)) E.push(`quiz ${i + 1}: quiz text is plain text (no HTML)`);
   });
+  const nq = (L.quiz || []).length;
+  if (nq >= 8 && Math.max(...answers) > nq * 0.45) W.push(`quiz: answers are bunched on option ${answers.indexOf(Math.max(...answers)) + 1} (${answers.join('/')}); spread them`);
+}
+
+/** A step's "더 알아보기": sections of paragraphs, a list, comparison rows and/or a code block. */
+function checkMore(at, more, E, W) {
+  if (!Array.isArray(more) || !more.length) { E.push(`${at}: more must be a non-empty array of sections`); return; }
+  if (more.length > 5) W.push(`${at}: more has ${more.length} sections (keep to 2–4)`);
+  let chars = 0;
+  more.forEach((m, j) => {
+    const w = `${at}: more ${j + 1}`;
+    if (!m || typeof m !== 'object') { E.push(`${w}: must be an object`); return; }
+    if (!m.title) E.push(`${w}: title is missing`);
+    else if (tw(m.title) > 18) W.push(`${w}: title "${m.title}" is long`);
+    if (!m.body && !m.list && !m.rows && !m.code) E.push(`${w}: needs body, list, rows or code`);
+    if (m.body && (!Array.isArray(m.body) || m.body.some((p) => typeof p !== 'string'))) E.push(`${w}: body is an array of paragraphs`);
+    if (m.list && (!Array.isArray(m.list) || m.list.some((p) => typeof p !== 'string'))) E.push(`${w}: list is an array of strings`);
+    if (m.rows) {
+      if (!Array.isArray(m.rows)) E.push(`${w}: rows is an array of [left, right, tone]`);
+      else for (const r of m.rows) if (!Array.isArray(r) || (r[2] && !TONES.has(r[2]))) E.push(`${w}: rows are [left, right, tone] with a known tone`);
+    }
+    if (m.code) checkCode(`${w}: code`, m.code, E, W, '', 60, 30);
+    const extra = Object.keys(m).filter((k) => !['title', 'body', 'list', 'rows', 'code'].includes(k));
+    if (extra.length) E.push(`${w}: unknown field(s) ${extra.join(', ')}`);
+    chars += [...(m.body || []), ...(m.list || []), ...(m.rows || []).flat()].join('').replace(/<[^>]+>/g, '').length;
+  });
+  if (chars > 1800) W.push(`${at}: more has ${chars} characters of text (aim 500–1400)`);
+  if (chars < 250 && !more.some((m) => m.code)) W.push(`${at}: more has only ${chars} characters; it should go deeper than the step`);
 }
 
 function checkLabel(where, n, kind, size, E, W) {
@@ -277,13 +317,13 @@ function checkLabel(where, n, kind, size, E, W) {
   } else if (tw(lines.join(' ')) > 11) W.push(`${where}: label "${lines.join(' ')}" is long for a pill`);
 }
 
-function checkCode(where, c, E, W, refErr) {
+function checkCode(where, c, E, W, refErr, maxCols = 46, maxRows = 24) {
   if (refErr) { E.push(`${where}: ${refErr}`); return; }
   if (!c || typeof c.text !== 'string') { E.push(`${where}: text is missing`); return; }
   if (c.lang && !LANGS.has(c.lang)) E.push(`${where}: lang "${c.lang}" is not one of ${[...LANGS].join(', ')}`);
   const rows = c.text.replace(/\n$/, '').split('\n');
-  if (rows.length > 24) W.push(`${where}: ${rows.length} lines (the pane shows about 22)`);
-  const wide = rows.filter((r) => tw(r) > 46);
-  if (wide.length) W.push(`${where}: ${wide.length} line(s) wider than 46 columns`);
+  if (rows.length > maxRows) W.push(`${where}: ${rows.length} lines (keep to ${maxRows})`);
+  const wide = rows.filter((r) => tw(r) > maxCols);
+  if (wide.length) W.push(`${where}: ${wide.length} line(s) wider than ${maxCols} columns`);
   for (const n of c.hl || []) if (n < 1 || n > rows.length) E.push(`${where}: hl line ${n} is outside 1–${rows.length}`);
 }
