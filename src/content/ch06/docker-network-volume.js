@@ -177,7 +177,7 @@ $ docker exec -i db pg_restore \\
         ] },
         { title: '흔한 실수', list: [
           '개발 PC의 <code>.env</code>(<code>DB_HOST=localhost</code>)를 그대로 이미지에 넣는 것. 주소는 환경마다 다르니 실행할 때 주입합니다.',
-          'Docker Desktop에서 호스트 PC의 서비스에 닿고 싶다면 <code>host.docker.internal</code>이라는 특별한 이름을 씁니다. 컨테이너끼리 통신할 때 쓰는 이름은 아닙니다.',
+          'Docker Desktop에서 호스트 PC의 서비스에 닿고 싶다면 <code>host.docker.internal</code>이라는 특별한 이름을 씁니다. 컨테이너끼리 통신할 때 쓰는 이름은 아닙니다.', '반대로 앱이 컨테이너 안에서 <code>127.0.0.1</code>에만 바인딩하면, 이번엔 바깥(다른 컨테이너 · 호스트)에서 그 앱에 닿지 못합니다. 서버 앱은 컨테이너 안에서 <code>0.0.0.0</code>으로 듣게 합니다.',
         ] },
       ],
     },
@@ -203,6 +203,7 @@ $ docker exec -i db pg_restore \\
         ] },
         { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker network ls\nNETWORK ID     NAME     DRIVER    SCOPE\n1a2b3c4d5e6f   bridge   bridge    local\n7a8b9c0d1e2f   host     host      local\n3e4f5a6b7c8d   none     null      local\n\n$ docker inspect db \\\n  -f \'{{.NetworkSettings.IPAddress}}\'\n172.17.0.2' } },
         { title: '더 생각해 볼 것', body: ['기본 bridge는 하위 호환 때문에 남아 있는 부분이 많습니다. 예전에는 <code>--link</code> 옵션으로 이름을 이어 줬지만 지금은 권장하지 않아요. 새로 만드는 구성은 다음 단계의 사용자 정의 네트워크를 기본으로 씁니다.'] },
+        { title: '흔한 실수', list: ['컨테이너 서브넷(172.17.0.0/16 등)이 회사 VPN이나 VPC 대역과 겹치면, 그 대역으로 가는 트래픽이 컨테이너 쪽으로 빠져 사라집니다. Docker 데몬 설정에서 기본 대역을 바꿀 수 있어요.', '<code>docker inspect</code>로 찾은 IP를 설정 파일에 적어 두는 것. 재생성할 때마다 바뀔 수 있는 값입니다.'] },
       ],
     },
     {
@@ -229,7 +230,7 @@ $ docker exec -i db pg_restore \\
         { title: '실무 팁', list: [
           '네트워크를 용도별로 나누세요. 예: 바깥과 닿는 <code>front</code>(웹 · API)와 DB가 있는 <code>back</code>. API만 두 네트워크에 모두 연결하면 웹 컨테이너는 DB에 닿을 수 없습니다.',
           '같은 별칭을 여러 컨테이너에 붙이면 DNS가 여러 IP를 돌려줍니다. 간단한 분산에 쓰이지만, 제대로 된 로드밸런싱은 아닙니다.',
-          '<code>docker network inspect shopnet</code>으로 어떤 컨테이너가 연결돼 있는지, 서브넷이 무엇인지 확인합니다. 회사 VPN 대역과 겹치면 서브넷을 직접 지정해 만듭니다.',
+          '<code>docker network inspect shopnet</code>으로 어떤 컨테이너가 연결돼 있는지, 서브넷이 무엇인지 확인합니다. 회사 VPN 대역과 겹치면 서브넷을 직접 지정해 만듭니다.', '<code>docker network create --internal back</code>으로 만든 네트워크는 바깥(인터넷)으로 나가는 길이 없습니다. DB처럼 외부 접속이 필요 없는 컨테이너만 두는 망에 씁니다.',
         ] },
       ],
     },
@@ -256,7 +257,7 @@ $ docker exec -i db pg_restore \\
         { title: '출력 읽기', body: [
           '<code>ENOTFOUND</code>(또는 <code>Name or service not known</code>)는 <b>이름 풀이</b> 실패, <code>ECONNREFUSED</code>는 이름은 풀렸는데 <b>그 포트에서 아무도 안 받는</b> 것, 응답 없이 시간이 지나는 <code>ETIMEDOUT</code>은 경로가 막힌 것입니다. 오류 이름만 구분해도 어디를 볼지 절반은 정해져요.',
         ] },
-        { title: '흔한 실수', body: ['Compose 프로젝트 두 개(예: 쇼핑몰과 정산)를 따로 띄우면 각자 자기 네트워크를 만들어 서로의 서비스 이름을 모릅니다. 공유할 네트워크를 미리 만들고 양쪽 파일에서 <code>external</code> 네트워크로 연결합니다.'] },
+        { title: '흔한 실수', body: ['Compose 프로젝트 두 개(예: 쇼핑몰과 정산)를 따로 띄우면 각자 자기 네트워크를 만들어 서로의 서비스 이름을 모릅니다. 공유할 네트워크를 미리 만들고 양쪽 파일에서 <code>external</code> 네트워크로 연결합니다. 서비스 이름, 별칭, 컨테이너 이름이 섞여 쓰이면서 철자가 미묘하게 다른 경우도 흔합니다.'] },
       ],
     },
     {
@@ -274,10 +275,11 @@ $ docker exec -i db pg_restore \\
       metrics: { port: ['막힘', 'bad'] },
       more: [
         { title: '왜 막혀 있나', body: [
-          '컨테이너의 IP(<code>172.18.0.x</code>)는 호스트 안에서만 의미가 있는 사설 주소입니다. 바깥 PC나 인터넷은 이 주소로 가는 길을 모릅니다. 호스트 자신의 셸에서는 컨테이너 IP로 바로 접속이 되기도 해서(Linux), "서버에서 curl은 되는데 밖에서는 안 된다"는 혼란이 자주 생깁니다.',
+          '컨테이너의 IP(<code>172.18.0.x</code>)는 호스트 안에서만 의미가 있는 사설 주소입니다. 바깥 PC나 인터넷은 이 주소로 가는 길을 모릅니다. 호스트 자신의 셸에서는 컨테이너 IP로 바로 접속이 되기도 해서(Linux), "서버에서 curl은 되는데 밖에서는 안 된다"는 혼란이 자주 생깁니다. 이 기본값은 실수로 서비스를 노출하지 않게 해 주는 안전장치이기도 합니다.',
         ] },
         { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker port api\n                       # 아무것도 없음\n$ docker inspect api \\\n  -f \'{{json .Config.ExposedPorts}}\'\n{"3000/tcp":{}}        # EXPOSE의 메모만 있음' } },
         { title: '출력 읽기', body: ['<code>docker port</code>가 비어 있으면 호스트 쪽으로 열린 포트가 하나도 없다는 뜻입니다. <code>ExposedPorts</code>는 이미지에 적힌 메모라서, <code>-P</code>(대문자) 옵션이 이 목록을 보고 임의의 호스트 포트를 열어 줄 때만 쓰입니다.'] },
+        { title: '실무 팁', list: ['접속이 안 되면 바깥에서 안쪽으로 한 칸씩 봅니다. 브라우저 → 호스트 포트(<code>docker port</code>) → 컨테이너 안에서 <code>curl localhost:3000</code> 순서로 확인하면 어느 칸에서 막혔는지 바로 나옵니다.', '클라우드 VM이라면 VM 바깥의 보안 그룹 · 방화벽 규칙까지가 밖에서 안으로 오는 길입니다. Docker 설정이 맞아도 여기서 막히면 응답이 없습니다.'] },
       ],
     },
     {
@@ -333,7 +335,7 @@ $ docker exec -i db pg_restore \\
         { title: '해결책 고르기', list: [
           '<b>가장 좋음</b>: DB는 publish하지 않고 같은 네트워크의 앱만 접근합니다.',
           '<b>잠깐 들여다볼 때</b>: <code>-p 127.0.0.1:5432:5432</code> + <code>ssh -L 5432:localhost:5432 vm</code>로 내 PC에서만.',
-          '<b>바깥 방어선</b>: 클라우드 보안 그룹(AWS) · NSG(Azure) · 방화벽 규칙(GCP) · ACG(NCP)에서 필요한 포트만 허용합니다. 이건 VM 밖에서 막으니 Docker 규칙과 무관하게 동작해요.',
+          '<b>바깥 방어선</b>: 클라우드 보안 그룹(AWS) · NSG(Azure) · 방화벽 규칙(GCP) · ACG(NCP)에서 필요한 포트만 허용합니다. 이건 VM 밖에서 막으니 Docker 규칙과 무관하게 동작해요.', '<b>DOCKER-USER 체인</b>: 호스트에서 꼭 막아야 한다면 Docker가 사용자 규칙용으로 남겨 둔 이 체인에 규칙을 넣습니다. ufw 설정만으로는 부족합니다.',
         ] },
         { title: '점검 명령', code: { title: 'terminal', lang: 'sh', text: '# 모든 인터페이스에 열린 포트 찾기\n$ docker ps --format \'{{.Names}}\\t{{.Ports}}\' \\\n    | grep 0.0.0.0\ndb    0.0.0.0:5432->5432/tcp   # ← 위험' } },
       ],
@@ -363,6 +365,7 @@ $ docker exec -i db pg_restore \\
           'host 모드는 Linux 호스트를 전제로 설계되었습니다. Docker Desktop(Mac · Windows)에서는 동작 방식이 다르거나 제한될 수 있으니 확인하고 쓰세요.',
         ] },
         { title: '여러 호스트로 가면', body: ['overlay 드라이버는 여러 호스트의 컨테이너를 한 네트워크처럼 잇습니다(Docker Swarm). 실무에서 여러 서버의 컨테이너 네트워크는 대개 쿠버네티스의 CNI가 맡아요. 7장 Service 레슨에서 이어집니다.'] },
+        { title: '실무 팁', list: ['쿠버네티스에서는 같은 일을 <code>hostNetwork: true</code>로 합니다. 노드 모니터링 에이전트 같은 일부 시스템 Pod만 쓰는 설정이에요.', '<code>--network container:api</code>는 다른 컨테이너의 network namespace를 함께 씁니다. 디버그 도구 컨테이너를 앱에 붙여 같은 <code>localhost</code>를 보게 할 때 유용합니다.'] },
       ],
     },
     {
@@ -392,6 +395,7 @@ $ docker exec -i db pg_restore \\
           '<code>docker rm -v</code>와 <code>docker compose down -v</code>는 익명(또는 해당) 볼륨까지 지웁니다. 이때는 정말로 데이터가 사라져요.',
           '<code>docker volume prune</code>은 쓰이지 않는 볼륨을 지웁니다. 최근 Docker는 기본으로 익명 볼륨만 대상으로 하지만, <code>-a</code>를 붙이면 이름 있는 볼륨도 지웁니다.',
         ] },
+        { title: '실무 팁', list: ['운영 DB 컨테이너를 건드리기 전에는 덤프부터 뜹니다. 오늘 같은 사고도 덤프 하나가 있었다면 몇 분 만에 끝났을 일입니다.', '이미지에 VOLUME이 선언돼 있는지는 <code>docker image inspect postgres:16 -f \'{{json .Config.Volumes}}\'</code>로 확인합니다. 데이터를 다루는 공식 이미지는 대부분 선언돼 있습니다.'] },
       ],
     },
     {
@@ -414,9 +418,9 @@ $ docker exec -i db pg_restore \\
         { title: '알아 두면 좋은 동작', list: [
           '<b>빈</b> 이름 있는 볼륨을 이미지에 파일이 있는 경로에 붙이면, Docker가 이미지의 파일을 볼륨으로 먼저 복사해 줍니다. 이미 내용이 있는 볼륨이면 볼륨의 내용이 보여요.',
           '볼륨 하나를 여러 컨테이너에 붙일 수 있습니다. 다만 DB처럼 파일을 독점해야 하는 프로그램 두 개가 같은 데이터 디렉터리를 쓰면 데이터가 망가집니다.',
-          '<code>-v pgdata:/path:ro</code>처럼 읽기 전용으로도 붙일 수 있습니다.',
+          '<code>-v pgdata:/path:ro</code>처럼 읽기 전용으로도 붙일 수 있습니다.', '볼륨 드라이버 옵션으로 NFS 같은 네트워크 스토리지에 볼륨을 둘 수도 있습니다. 다만 DB 데이터를 네트워크 파일시스템에 두는 것은 성능 · 잠금 문제로 신중해야 합니다.',
         ] },
-        { title: '실무 팁', body: ['컨테이너를 교체하기 전에는 늘 "이 컨테이너의 데이터는 어느 볼륨에 있나?"를 <code>docker inspect db -f \'{{json .Mounts}}\'</code>로 확인하는 습관을 들이세요. <code>Name</code>이 긴 해시라면 익명 볼륨입니다.'] },
+        { title: '실무 팁', body: ['컨테이너를 교체하기 전에는 늘 "이 컨테이너의 데이터는 어느 볼륨에 있나?"를 <code>docker inspect db -f \'{{json .Mounts}}\'</code>로 확인하는 습관을 들이세요. <code>Name</code>이 긴 해시라면 익명 볼륨입니다. 볼륨 이름은 <code>shop-pgdata</code>처럼 용도가 드러나게 지어야, 나중에 정리할 때 지워도 되는지 판단할 수 있습니다.'] },
       ],
     },
     {
@@ -440,7 +444,7 @@ $ docker exec -i db pg_restore \\
           '<b>권한</b>: Linux에서 컨테이너가 root로 만든 파일은 호스트에서도 root 소유가 됩니다. 반대로 non-root 컨테이너는 호스트 폴더에 쓰지 못할 수 있어요. UID를 맞추거나 <code>--user $(id -u)</code>로 띄웁니다.',
           '<b>오타</b>: 호스트 경로가 없으면 <code>-v</code>는 빈 폴더를 새로 만들어 버려, 오류 없이 빈 설정으로 뜹니다. <code>--mount type=bind</code>는 경로가 없으면 오류를 내 줍니다.',
         ] },
-        { title: '더 생각해 볼 것', body: ['bind mount는 호스트 경로에 묶이므로 "어느 서버에서나 같은 동작"이라는 컨테이너의 장점을 일부 내줍니다. 운영에서 설정 파일을 넣어야 한다면 이미지에 넣거나, 쿠버네티스라면 ConfigMap으로 주입하는 편이 이식성이 좋습니다(7장).'] },
+        { title: '더 생각해 볼 것', body: ['bind mount는 호스트 경로에 묶이므로 "어느 서버에서나 같은 동작"이라는 컨테이너의 장점을 일부 내줍니다. 운영에서 설정 파일을 넣어야 한다면 이미지에 넣거나, 쿠버네티스라면 ConfigMap으로 주입하는 편이 이식성이 좋습니다(7장). 개발 중 자동 재시작이 필요하면 nodemon 같은 도구를 컨테이너 안에서 돌려 bind된 파일 변경을 감지하게 합니다.'] },
       ],
     },
     {
@@ -467,6 +471,7 @@ $ docker exec -i db pg_restore \\
           '<b>복원 시험</b>: 실제로 다른 DB에 복원해 행 수를 확인해 본 백업만 믿습니다.',
           '얼마나 자주 뜰지는 "몇 시간치까지 잃어도 되나(RPO)"로 정합니다(10장 백업과 재해 복구).',
         ] },
+        { title: '실무 팁', list: ['덤프 파일 이름에 날짜와 DB 이름을 넣고, 오브젝트 스토리지의 수명 주기 규칙으로 오래된 덤프를 자동 정리하거나 저렴한 등급으로 옮깁니다.', '덤프에도 고객 데이터가 들어 있습니다. 버킷은 비공개로, 가능하면 암호화하고 접근 권한을 백업 담당 역할로 좁힙니다.', '덤프와 복원에 걸리는 시간을 재 두면, 장애 때 "몇 분 안에 돌아올 수 있나"에 숫자로 답할 수 있습니다.'] },
       ],
     },
     {
@@ -501,6 +506,7 @@ $ docker exec -i db pg_restore \\
           '스냅샷은 디스크 단위라 "어제 그 테이블 하나"를 되살리기엔 무겁습니다. 논리 덤프와 함께 씁니다.',
           '관리형 DB를 쓰면 이 레슨의 DB 컨테이너와 볼륨 걱정은 대부분 사업자 몫이 됩니다. 대신 비용과 버전 선택의 자유를 일부 내줍니다.',
         ] },
+        { title: '흔한 실수', list: ['스냅샷만 믿고 복원을 한 번도 해 보지 않은 것. 스냅샷으로 디스크를 만들어 VM에 붙이고 DB가 실제로 뜨는지까지 확인해야 합니다.', '실행 중인 DB 디스크의 스냅샷은 전원이 갑자기 꺼진 상태와 비슷합니다. DB는 대개 복구하지만, 중요한 데이터라면 논리 덤프나 관리형 DB 백업을 함께 둡니다.'] },
       ],
     },
     {

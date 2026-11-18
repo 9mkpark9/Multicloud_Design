@@ -570,7 +570,7 @@ env:
         '그래서 비밀값은 <b>파일로 마운트</b>하는 편이 안전합니다. 메모리(tmpfs)에만 놓이고, 권한을 좁힐 수 있으며, Secret이 바뀌면 파일도 갱신됩니다.',
       ],
       callout: { type: 'tip', text: '용도에 따라 정해진 <b>Secret 타입</b>도 있습니다. TLS 인증서, 비공개 레지스트리 로그인 정보는 정해진 타입과 키 이름으로 만들어야 쓰는 쪽이 알아봅니다.' },
-      tags: [{ on: 'pod_p', text: '/etc/secret (tmpfs)', tone: 'ok', icon: 'lock', pos: 'bottom' }],
+      tags: [{ on: 'pod_p', text: '/etc/secret (tmpfs)', tone: 'ok', icon: 'lock', pos: 'top' }],
       flows: [{ path: ['sec', 'pod_p'], kind: 'data', n: 2 }],
       more: [
         {
