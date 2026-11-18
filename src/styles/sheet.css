@@ -1,0 +1,12 @@
+/* contact sheet (sheet.html?id=<lesson id>) */
+body { height: auto; }
+.sheet { padding: 14px; }
+.sheet h1 { font-size: 18px; margin-bottom: 10px; }
+.sheet h1 small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.sheet-grid { display: grid; grid-template-columns: repeat(3, 600px); gap: 10px; }
+.sheet-cell { margin: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); overflow: hidden; }
+.sheet-cell figcaption { padding: 5px 10px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--paper); white-space: nowrap; overflow: hidden; }
+.sheet-stage { height: 410px; display: flex; }
+.sheet-stage .code-pane { width: 41%; min-width: 0; }
+.sheet-stage .code-body { font-size: 9px; }
+.sheet-stage .panel { font-size: 10px; transform: scale(0.8); transform-origin: top left; }

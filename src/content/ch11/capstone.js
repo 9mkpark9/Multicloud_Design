@@ -1,0 +1,333 @@
+export default {
+  id: 'capstone',
+  learn: [
+    '요구사항에서 클라우드 배치를 끌어내기',
+    'IP 계획 · 허브 네트워크 · ID 연합으로 바닥 깔기',
+    '클러스터 · Terraform · GitOps로 같은 방식의 배포',
+    '데이터 경계와 클라우드 간 전송 비용 지키기',
+    '관측 · 보안 · 비용 · DR을 플랫폼의 기능으로',
+    '코스 전체 지도와 다음 공부',
+  ],
+  legend: [['req', '요청'], ['ctrl', '로그인 · 배포 · 제어'], ['build', '빌드 · 이미지'], ['data', '데이터 · 메트릭'], ['sync', '복제'], ['bad', '위반 · 실패']],
+  metrics: [
+    { id: 'reqs', label: '요구 충족', icon: 'clipboard' },
+    { id: 'auto', label: '변경 방식', icon: 'rocket' },
+    { id: 'egress', label: '클라우드 간 전송', icon: 'truck' },
+    { id: 'rto', label: '글로벌 RTO', icon: 'timer' },
+  ],
+  scene: {
+    nodes: {
+      users: { kind: 'users', at: [-2.4, 1], label: '글로벌 고객' },
+      gov: { kind: 'client', at: [6.6, 3.4], label: '공공기관' },
+      staff: { kind: 'users', at: [3, -3.4], label: '직원' },
+      aws: { at: [0, 0], label: 'AWS', sub: '글로벌 쇼핑몰', icon: 'cloud', color: 'aws' },
+      entra: { at: [5, 0], label: 'Entra ID', sub: '사내 ID', icon: 'id-card', color: 'azure' },
+      gcp: { at: [0, 5], label: 'GCP', sub: '분석', icon: 'cloud', color: 'gcp' },
+      ncp: { at: [5, 5], label: 'NCP', sub: '공공 존', icon: 'cloud', color: 'ncp' },
+      hub: { at: [2.5, 2.5], size: 's', label: '허브', sub: '전용선', icon: 'router', color: 'navy' },
+      tf: { at: [-2.8, 1.2], label: 'Terraform', sub: 'state × 4', icon: 'file-code', color: 'olive' },
+      git: { kind: 'cyl', at: [-4, 4], label: 'Git 저장소', icon: 'git', color: 'slate' },
+      ci: { at: [-2, 2], label: 'CI', sub: '빌드·스캔·서명', icon: 'hammer', color: 'slate' },
+      argo: { at: [0, 5], label: 'Argo CD', sub: '플릿 배포', icon: 'refresh', color: 'navy' },
+      obs: { at: [2.6, -2.6], label: 'Grafana', sub: '중앙 관측', icon: 'chart-line', color: 'yellow' },
+      aws2: { at: [5, 0], label: 'AWS DR', sub: '다른 리전', icon: 'cloud', color: 'aws' },
+    },
+    edges: {
+      e_u_aws: { from: 'users', to: 'aws' },
+      e_g_ncp: { from: 'gov', to: 'ncp' },
+      h1: { from: 'hub', to: 'aws', bi: true },
+      h2: { from: 'hub', to: 'gcp', bi: true },
+      h3: { from: 'hub', to: 'ncp', bi: true },
+      s1: { from: 'entra', to: 'aws', style: 'dashed', off: true },
+      s2: { from: 'entra', to: 'gcp', style: 'dashed', off: true },
+      s3: { from: 'entra', to: 'ncp', style: 'dashed', off: true },
+      e_staff: { from: 'staff', to: 'entra' },
+      t1: { from: 'tf', to: 'aws', style: 'dashed' },
+      t2: { from: 'tf', to: 'gcp', style: 'dashed' },
+      t3: { from: 'tf', to: 'ncp', style: 'dashed' },
+      e_gc: { from: 'git', to: 'ci' },
+      e_ga: { from: 'git', to: 'argo', style: 'dashed' },
+      a1: { from: 'argo', to: 'aws' },
+      a2: { from: 'argo', to: 'ncp' },
+      o1: { from: 'aws', to: 'obs' },
+      o2: { from: 'gcp', to: 'obs' },
+      o3: { from: 'ncp', to: 'obs' },
+      r1: { from: 'aws', to: 'aws2', style: 'dashed', label: '비동기 복제' },
+      e_dr: { from: 'users', to: 'aws2', via: [[1.6, 1.6]], style: 'dashed' },
+    },
+  },
+  codes: {
+    tree: {
+      title: 'infra/', lang: 'text',
+      text: `infra/
+├─ modules/
+│  ├─ network/   # VPC · 서브넷 · 라우팅
+│  ├─ cluster/   # EKS · NKS 공통 입력
+│  └─ dns/       # 사설 존 · 전달 규칙
+├─ envs/
+│  ├─ aws-prod/  # state: aws-prod
+│  ├─ aws-dr/    # state: aws-dr
+│  ├─ ncp-gov/   # state: ncp-gov (접근 제한)
+│  └─ gcp-data/  # state: gcp-data
+└─ ipam/         # 주소 계획표 (출력값)`,
+    },
+  },
+  steps: [
+    {
+      key: '요구사항', kind: 'problem', title: '요구부터: 무엇을 어디에 둘까',
+      body: [
+        '마지막으로 <code>shop.example</code>을 처음부터 설계합니다. 5장에서 본 네 클라우드의 성격에 요구 넷을 맞춥니다. 국내 <b>공공 고객 데이터</b>는 인증받은 NCP 공공 존에, <b>글로벌 쇼핑몰</b>은 리전이 많은 AWS에, <b>분석</b>은 GCP BigQuery에, 직원 로그인은 회사가 이미 쓰는 <b>Entra ID</b>로.',
+        '비기능 요구도 적습니다. 글로벌 서비스는 RTO 1시간 · RPO 5분, 배포는 하루에도 여러 번, 클라우드 간 전송비는 월 예산 안. 11장 첫 레슨의 원칙대로 클라우드마다 <b>이유가 한 문장</b>으로 붙어 있는지 확인합니다.',
+      ],
+      callout: { type: 'key', text: '설계는 서비스 목록이 아니라 요구에서 시작합니다. Azure는 이 설계에서 워크로드 없이 <b>ID만</b> 맡습니다. 요구가 없는 것은 그림에 넣지 않습니다.' },
+      show: ['users', 'gov', 'aws', 'gcp', 'ncp', 'entra'],
+      tags: [
+        { on: 'aws', text: '글로벌 서비스', tone: 'aws' },
+        { on: 'entra', text: '직원 로그인', tone: 'azure', pos: 'bottom' },
+        { on: 'gcp', text: 'BigQuery로 분석', tone: 'gcp', pos: 'bottom' },
+        { on: 'ncp', text: '공공 고객 데이터', tone: 'ncp', pos: 'bottom' },
+      ],
+      flows: [{ path: ['users', 'aws'], kind: 'req', n: 2 }, { path: ['gov', 'ncp'], kind: 'req', n: 2, delay: 0.5 }],
+      metrics: { reqs: ['0 / 4', 'bad'], auto: '설계 전', egress: '설계 전', rto: '목표 1시간' },
+    },
+    {
+      key: '네트워크', kind: 'solution', title: '바닥부터: 주소 계획과 허브',
+      body: [
+        '2장의 CIDR과 3장의 VPC를 회사 단위로 넓힙니다. 먼저 <b>주소 계획표</b>를 만듭니다. 클라우드와 리전마다 겹치지 않는 /16을 주고, Pod · Service 대역과 미래를 위한 예약 블록까지 한 표에 적습니다.',
+        '클라우드는 코로케이션의 <b>전용선 허브</b>로 잇고 인터넷 VPN을 백업으로 둡니다. 이름은 클라우드별 하위 도메인과 <b>조건부 전달</b>로 풀고, 바깥 입구는 GSLB가 맡습니다(11장 네트워크).',
+      ],
+      callout: { type: 'warn', text: '공공 존은 외부와의 연결 자체에 조건이 붙을 수 있습니다. 허브에 붙이기 전에 <b>허용되는 연결 방식</b>부터 확인하세요.' },
+      hide: ['users', 'gov', 'entra'],
+      show: ['hub'],
+      set: { aws: { sub: '10.10.0.0/16' }, gcp: { sub: '10.30.0.0/16' }, ncp: { sub: '10.40.0.0/16' } },
+      focus: ['hub'],
+      panel: {
+        title: '주소 계획표', icon: 'table',
+        rows: [['AWS 서울', '10.10.0.0/16', 'aws'], ['AWS DR 리전', '10.11.0.0/16', 'aws'], ['GCP 분석', '10.30.0.0/16', 'gcp'], ['NCP 공공', '10.40.0.0/16', 'ncp'], ['예약 (확장 · 인수)', '10.50.0.0/16 ~', 'mute']],
+      },
+      flows: [{ path: ['aws', 'hub', 'ncp'], kind: 'req', n: 2 }, { path: ['aws', 'hub', 'gcp'], kind: 'data', n: 2, delay: 0.6 }],
+      changes: [['+', '회사 전체 주소 계획표'], ['+', '전용선 허브 + VPN 백업'], ['+', '조건부 전달 · GSLB']],
+    },
+    {
+      key: 'ID', kind: 'solution', title: '사람과 워크로드의 신원',
+      body: [
+        '4장의 IAM 위에 11장의 연합을 얹습니다. 직원은 <b>Entra ID</b>에서 MFA로 한 번 로그인하고, 각 클라우드는 그 증명을 믿고 그룹에 맞는 역할을 줍니다. NCP는 지원하는 연동 방식을 확인해 맞추고, 클라우드마다 금고에 넣은 비상 계정을 하나씩 둡니다.',
+        '워크로드는 <b>토큰 교환</b>으로 다른 클라우드를 부릅니다. CI도 마찬가지로 OIDC 토큰으로 배포 권한을 받습니다. 플랫폼 어디에도 <b>장기 키를 저장하지 않는 것</b>이 목표입니다.',
+      ],
+      callout: { type: 'tip', text: '권한은 사람이 아니라 그룹에 줍니다. 퇴사 처리는 Entra ID에서 한 번이면 끝납니다.' },
+      hide: ['hub'],
+      show: ['entra', 'staff', 's1', 's2', 's3'],
+      set: { aws: { sub: 'SSO 역할' }, gcp: { sub: 'SSO 역할' }, ncp: { sub: 'SSO 역할' } },
+      focus: ['entra'],
+      tags: [{ on: 'entra', text: 'MFA 한 번', tone: 'ok', icon: 'fingerprint', pos: 'bottom' }],
+      flows: [
+        { path: ['staff', 'entra'], kind: 'ctrl' },
+        { path: ['entra', 'aws'], kind: 'ctrl', delay: 1 }, { path: ['entra', 'gcp'], kind: 'ctrl', delay: 1 }, { path: ['entra', 'ncp'], kind: 'ctrl', delay: 1 },
+      ],
+      metrics: { reqs: ['1 / 4', 'warn'] },
+      changes: [['+', 'Entra ID SSO 연합'], ['+', '클라우드별 비상 계정'], ['-', '사람 · CI의 장기 키']],
+    },
+    {
+      key: '클러스터', kind: 'solution', title: '클러스터는 필요한 곳에만',
+      body: [
+        '6장의 컨테이너와 7장의 Kubernetes로 앱을 올립니다. 글로벌 쇼핑몰은 두 리전의 <b>EKS</b>, 공공 서비스는 NCP 공공 존의 <b>NKS</b>. 둘은 같은 이미지와 같은 매니페스트를 쓰고, 클라우드별 차이는 overlay에 적습니다(11장 쿠버네티스).',
+        'GCP에는 클러스터를 두지 않습니다. 분석은 관리형 <b>BigQuery</b>가 더 잘하니까요. 모든 곳에 Kubernetes를 깔아야 멀티클라우드인 것은 아닙니다.',
+      ],
+      callout: { type: 'tip', text: '옮기기 쉬운 층(컨테이너 · K8s · Terraform)은 그것이 값어치를 하는 앱 쪽에 두고, 관리형 서비스는 <b>값어치가 있으면 기꺼이</b> 씁니다.' },
+      hide: ['entra', 'staff', 's1', 's2', 's3'],
+      show: ['users', 'gov'],
+      set: {
+        aws: { label: 'EKS', sub: 'AWS · 리전 2개', icon: 'helm' },
+        ncp: { label: 'NKS', sub: 'NCP 공공 존', icon: 'helm' },
+        gcp: { label: 'BigQuery', sub: 'GCP 관리형', icon: 'chart-bar' },
+      },
+      tags: [{ on: 'gcp', text: 'K8s 없이 관리형', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: '공공 존 안에서만', tone: 'ncp', pos: 'bottom' }],
+      flows: [{ path: ['users', 'aws'], kind: 'req', n: 2 }, { path: ['gov', 'ncp'], kind: 'req', n: 2, delay: 0.5 }],
+      metrics: { reqs: ['3 / 4', 'warn'], auto: '손으로' },
+    },
+    {
+      key: 'Terraform', kind: 'concept', title: '인프라는 코드로, state는 나눠서',
+      body: [
+        '8장의 Terraform으로 이 모든 것을 짓습니다. VPC · 클러스터 · DNS는 <b>모듈</b>로 한 번 만들고 환경마다 입력값만 바꿉니다. 주소 계획표도 코드(<code>ipam/</code>)로 두어 리뷰에서 겹침을 잡습니다.',
+        '<b>state는 환경마다 따로</b>, 잠금이 되는 원격 백엔드에 둡니다. 한 번의 apply가 네 클라우드를 건드리지 않게 해서 실패의 반경을 줄이고, 공공 존 state에는 접근 권한을 따로 겁니다.',
+      ],
+      callout: { type: 'warn', text: '"apply 한 번으로 전부"는 데모에선 멋지지만 운영에선 위험합니다. 한 클라우드의 API 오류나 잠금이 나머지 변경까지 붙잡습니다.' },
+      hide: ['users', 'gov'],
+      show: ['tf'],
+      code: { ref: 'tree', hl: [2, 6, 7, 8, 9, 10] },
+      flows: [{ path: ['tf', 'aws'], kind: 'ctrl' }, { path: ['tf', 'gcp'], kind: 'ctrl', delay: 0.4 }, { path: ['tf', 'ncp'], kind: 'ctrl', delay: 0.8 }],
+      metrics: { auto: ['Terraform', 'ok'] },
+    },
+    {
+      key: 'GitOps', kind: 'solution', title: 'push 한 번이 두 클러스터까지',
+      body: [
+        '9장의 파이프라인입니다. push하면 CI가 이미지를 한 번 빌드하고, 스캔하고, 서명해서 <b>각 클라우드의 레지스트리</b>로 보냅니다. 클러스터는 가까운 레지스트리에서 같은 digest를 받습니다.',
+        '배포는 <b>Argo CD ApplicationSet</b>이 맡습니다. Git에 머지하면 EKS와 NKS가 각자의 overlay대로 맞춰집니다. CI도 사람도 운영 클러스터에 직접 손대지 않습니다.',
+      ],
+      callout: { type: 'warn', text: '공공 존 클러스터에 바깥의 Argo CD가 접속하는 것이 허용되지 않을 수 있습니다. 그럴 땐 NKS 안에 Argo CD를 따로 두고 <b>같은 Git을 당겨 오게</b> 합니다.' },
+      hide: ['tf', 'gcp'],
+      show: ['git', 'ci', 'argo'],
+      tags: [{ on: 'ci', text: '같은 digest · 서명', icon: 'badge' }, { on: 'argo', text: 'overlay별 배포', tone: 'accent', pos: 'bottom' }],
+      flows: [
+        { path: ['git', 'ci'], kind: 'build', n: 2 },
+        { path: ['git', 'argo'], kind: 'ctrl', delay: 1.2 },
+        { path: ['argo', 'aws'], kind: 'ctrl', delay: 2.2 }, { path: ['argo', 'ncp'], kind: 'ctrl', delay: 2.2 },
+      ],
+      metrics: { auto: ['Git 머지', 'ok'] },
+      changes: [['+', 'CI: 빌드 · 스캔 · 서명'], ['+', 'Argo CD ApplicationSet'], ['~', 'kubectl → Git 머지']],
+    },
+    {
+      key: '사례', kind: 'case', title: '사례: 분석으로 흘러간 공공 데이터',
+      body: [
+        '분석팀이 "편하게" NCP의 공공 고객 DB를 통째로 GCP로 복제하는 작업을 걸었습니다. 허브가 있으니 길은 열려 있었고 방화벽도 막지 않았습니다. 공공 고객의 원본 데이터가 <b>인증 범위 밖</b>으로 나간 겁니다.',
+        '같은 주에 AWS의 주문 데이터도 매일 전량 복사되면서 전송비가 예산을 넘었습니다. 네트워크가 이어지면 데이터는 <b>막지 않는 한 흐릅니다</b>.',
+      ],
+      callout: { type: 'key', text: '연결과 허용은 다릅니다. 허브는 길일 뿐이고, 무엇이 지나가도 되는지는 따로 정해서 <b>시스템에 걸어야</b> 합니다.' },
+      hide: ['git', 'ci', 'argo'],
+      show: ['gcp', 'hub'],
+      set: { ncp: { state: 'hot', badge: '반출 위반', tone: 'bad' } },
+      tags: [{ on: 'gcp', text: '공공 원본 도착', tone: 'bad', icon: 'warn', pos: 'bottom' }],
+      flows: [{ path: ['ncp', 'hub', 'gcp'], kind: 'bad', n: 3, gap: 0.4 }, { path: ['aws', 'hub', 'gcp'], kind: 'data', n: 5, gap: 0.25, delay: 0.6 }],
+      metrics: { reqs: ['위반 1건', 'bad'], egress: ['매일 전량', 'bad'] },
+      changes: [['-', '공공 원본이 NCP 밖으로'], ['-', '주문 데이터 매일 전량 복사'], ['~', '길이 있으니 막는 것이 없음']],
+    },
+    {
+      key: '데이터 경계', kind: 'solution', title: '데이터마다 원본과 경계를 정합니다',
+      body: [
+        '데이터를 <b>분류</b>하고, 분류마다 원본 위치와 밖으로 나갈 수 있는 형태를 정합니다. 공공 고객 원본은 NCP 밖으로 못 나가고, 비식별 · 집계된 결과만 분석으로 갑니다. 주문 데이터는 원본을 AWS에 두고 <b>변경분(CDC)</b>만 보냅니다.',
+        '규칙은 사람의 기억이 아니라 시스템에 겁니다. 방화벽과 라우팅에서 공공 DB → GCP 경로를 막고, 복제 작업은 승인된 목적지에만 쓰게 합니다.',
+      ],
+      callout: { type: 'tip', text: '"데이터는 한 곳에, 계산은 가까이"(11장 ID와 데이터). 경계를 넘는 것이 결과뿐이어야 규제와 비용이 함께 지켜집니다.' },
+      set: { ncp: { state: null, badge: null } },
+      panel: {
+        title: '데이터 분류와 경계', icon: 'shield',
+        rows: [['공공 고객 원본', 'NCP 밖으로 금지', 'bad'], ['비식별 · 집계', '분석으로 반출 허용', 'ok'], ['주문 데이터', '원본 AWS · 변경분만', 'aws']],
+      },
+      tags: [{ on: 'ncp', text: '집계 결과만', tone: 'ok', icon: 'funnel', pos: 'bottom' }],
+      flows: [{ path: ['ncp', 'hub', 'gcp'], kind: 'data' }, { path: ['aws', 'hub', 'gcp'], kind: 'data', n: 2, delay: 0.6 }],
+      metrics: { reqs: ['4 / 4', 'ok'], egress: ['변경분 · 집계', 'ok'] },
+      changes: [['+', '데이터 분류 · 원본 위치'], ['-', '공공 DB → GCP 경로'], ['~', '전량 복사 → 변경분 · 집계']],
+    },
+    {
+      key: '관측·보안', kind: 'concept', title: '눈과 자물쇠: 관측과 보안',
+      body: [
+        '10장의 관측 스택을 플랫폼으로 넓힙니다. 클라우드와 클러스터마다 수집기를 두고, 신호에 <code>cloud</code> · <code>cluster</code> 라벨을 붙여 <b>중앙 Grafana</b> 하나로 모읍니다. 공공 존 로그에는 개인정보가 섞일 수 있으니 NCP 안에 두고 메트릭만 보냅니다.',
+        '보안은 층마다 하나씩, 앞 챕터에서 배운 것을 그대로 씁니다.',
+      ],
+      callout: { type: 'key', text: '관측 데이터와 보안 로그도 데이터입니다. 클라우드 경계를 넘을 때마다 <b>비용과 규제</b>를 함께 따지세요.' },
+      hide: ['hub'],
+      show: ['obs'],
+      focus: ['obs'],
+      panel: {
+        title: '층마다 하나씩', icon: 'shield-check',
+        rows: [['사람', 'Entra ID SSO · MFA', 'azure'], ['워크로드', '토큰 교환 · 장기 키 0', 'ok'], ['비밀값', '클라우드별 KMS · 시크릿', 'info'], ['네트워크', '최소 개방 · 구간 암호화', 'info'], ['이미지', '서명된 것만 배포', 'ok']],
+      },
+      flows: [{ path: ['aws', 'obs'], kind: 'data', n: 2 }, { path: ['gcp', 'obs'], kind: 'data', n: 2, delay: 0.3 }, { path: ['ncp', 'obs'], kind: 'data', n: 2, delay: 0.6 }],
+    },
+    {
+      key: '비용', kind: 'concept', title: '청구서 네 장을 한 표로',
+      body: [
+        '10장의 FinOps를 네 클라우드에 적용합니다. 먼저 <b>공통 태그 키</b>(<code>service</code> · <code>env</code> · <code>team</code>)를 정해 모든 리소스에 붙이고(GCP는 라벨), 청구 데이터를 한 표로 모읍니다. FOCUS 같은 공통 청구 형식이 도움이 됩니다.',
+        '가장 큰 변수는 <b>클라우드 간 전송</b>입니다. 허브를 지나는 양을 대시보드에 올리고, 약정 할인은 클라우드마다 꾸준한 기준선에만 겁니다. 사용량이 나뉘어 있어 과하게 걸면 남습니다.',
+      ],
+      callout: { type: 'tip', text: '개발 · 스테이징 환경은 밤과 주말에 끄고, 끊겨도 되는 배치 작업에는 스팟을 씁니다.' },
+      hide: ['obs'],
+      show: ['hub'],
+      tags: [
+        { on: 'aws', text: 'service=shop', icon: 'tag', tone: 'aws' },
+        { on: 'gcp', text: 'service=analytics', icon: 'tag', tone: 'gcp', pos: 'bottom' },
+        { on: 'ncp', text: 'service=gov', icon: 'tag', tone: 'ncp', pos: 'bottom' },
+      ],
+      flows: [{ path: ['aws', 'hub', 'gcp'], kind: 'data', n: 2 }],
+      metrics: { egress: ['예산 안', 'ok'] },
+    },
+    {
+      key: 'DR', kind: 'solution', title: '재해 복구: 먼저 같은 클라우드 안에서',
+      body: [
+        '10장의 RTO · RPO로 워크로드마다 등급을 매깁니다. 글로벌 쇼핑몰은 <b>AWS의 다른 리전</b>에 웜 스탠바이를 두고 DB를 비동기로 복제하며, GSLB가 헬스 체크로 넘깁니다. 다른 클라우드보다 <b>다른 리전</b>이 먼저입니다.',
+        '공공 서비스는 NCP 안의 백업과 복원으로, 분석은 원천에서 다시 만드는 것으로 충분합니다. 그리고 분기마다 실제로 넘겨 보는 <b>훈련</b>을 합니다.',
+      ],
+      callout: { type: 'warn', text: '연습하지 않은 DR은 없는 것과 같습니다. 훈련에서 잰 시간이 곧 진짜 RTO입니다.' },
+      hide: ['gcp', 'ncp', 'hub'],
+      show: ['users', 'aws2'],
+      set: { aws: { state: 'down', badge: '리전 장애', tone: 'bad' } },
+      tags: [{ on: 'users', text: 'GSLB · TTL 60초', icon: 'compass' }, { on: 'aws2', text: 'RPO 5분 이내', tone: 'ok', pos: 'bottom' }],
+      flows: [
+        { path: ['aws', 'aws2'], kind: 'sync', n: 2 },
+        { path: ['users', 'aws'], kind: 'bad', n: 2, delay: 1 },
+        { path: ['users', [1.6, 1.6], 'aws2'], kind: 'req', n: 3, delay: 2 },
+      ],
+      metrics: { rto: ['1시간 · 훈련함', 'ok'] },
+      changes: [['+', 'AWS 다른 리전 웜 스탠바이'], ['+', 'GSLB 헬스 체크 전환'], ['~', 'RTO: 목표 → 훈련으로 확인']],
+    },
+    {
+      key: '정리', kind: 'recap', title: '정리: 코스 전체가 한 장에',
+      body: [
+        '요구에서 클라우드를 고르고, <b>주소 → 경로 → 신원 → 클러스터 → 코드 → 파이프라인 → 데이터 경계 → 관측 · 보안 · 비용 → DR</b> 순서로 쌓았습니다. 조각 하나하나가 이 코스의 챕터입니다.',
+        '다음 공부로는 서비스 메시와 정책 코드(OPA · Kyverno), SRE와 카오스 엔지니어링, 그리고 이 모든 것을 개발자에게 셀프서비스로 내주는 <b>플랫폼 엔지니어링</b>을 권합니다. 작게라도 직접 만들어 보는 것이 가장 빠른 길입니다.',
+      ],
+      callout: { type: 'tip', text: 'AWS SAA, CKA, Terraform Associate 같은 자격증은 배운 것을 점검하는 지도로 쓰세요.' },
+      hide: ['users', 'aws2'],
+      show: ['gcp', 'ncp', 'hub', 'gov', 'entra'],
+      set: { aws: { state: null, badge: null } },
+      panel: {
+        title: '코스 지도', icon: 'map',
+        rows: [
+          ['01–02 기초 · IP', '주소 계획', 'mute'], ['03–04 네트워크 · IAM', '허브 · 신원', 'info'], ['05 4대 클라우드', '요구별 배치', 'accent'],
+          ['06–07 Docker · K8s', 'EKS · NKS', 'info'], ['08–09 IaC · CI/CD', '모듈 · GitOps', 'ok'], ['10–11 운영 · 통합', '관측 · DR · 설계', 'warn'],
+        ],
+      },
+      focus: ['hub'],
+      flows: [
+        { path: ['gov', 'ncp'], kind: 'req', n: 2 },
+        { path: ['aws', 'hub', 'gcp'], kind: 'data', delay: 0.6 }, { path: ['ncp', 'hub', 'gcp'], kind: 'data', delay: 1 },
+      ],
+    },
+  ],
+  quiz: [
+    {
+      q: '분석팀이 공공 고객 행동을 분석하고 싶어 합니다. 원본은 NCP 공공 존에 있고 분석은 GCP BigQuery에서 합니다. 가장 타당한 방법은?',
+      options: [
+        '허브 경로가 있으니 공공 DB를 GCP로 실시간 복제한다',
+        'NCP 안에서 비식별 · 집계한 결과만 GCP로 보내고, 공공 DB → GCP 경로는 막아 둔다',
+        '암호화만 하면 원본을 GCP에 둬도 된다',
+        '분석을 포기하고 공공 데이터는 아무 데도 쓰지 않는다',
+      ],
+      answer: 1,
+      why: '데이터 경계는 원본 위치와 밖으로 나갈 수 있는 형태로 정합니다. 경로가 열려 있다는 것은 허용과 다르고, 암호화해도 데이터가 인증 범위 밖에 놓이는 것은 그대로입니다. 결과만 내보내면 규제와 분석이 함께 성립합니다.',
+    },
+    {
+      q: '네 클라우드의 인프라를 Terraform 하나의 state로 관리하자는 의견이 나왔습니다. 가장 큰 문제는?',
+      options: [
+        'Terraform은 한 state에 여러 프로바이더를 넣을 수 없다',
+        'state 파일이 너무 커져서 Git에 올릴 수 없다',
+        '모듈을 쓸 수 없게 된다',
+        '한 클라우드의 오류나 잠금이 나머지 변경까지 막고, 실수 한 번의 반경이 네 클라우드 전체가 된다',
+      ],
+      answer: 3,
+      why: '한 state에 여러 프로바이더를 넣는 것은 가능하지만, 실패와 권한의 반경이 커집니다. 환경마다 state를 나누면 공공 존 state에만 접근을 제한하는 것도 쉽습니다. state는 원래 Git이 아니라 잠금이 되는 원격 백엔드에 둡니다.',
+    },
+    {
+      q: 'AWS에서 도는 글로벌 쇼핑몰의 목표는 RTO 1시간 · RPO 5분입니다. 첫 DR 설계로 가장 알맞은 것은?',
+      options: [
+        'AWS의 다른 리전에 웜 스탠바이와 비동기 DB 복제를 두고, GSLB 전환을 정기적으로 훈련한다',
+        'Azure에 같은 구성을 두 벌로 올려 액티브-액티브로 돌린다',
+        '매일 밤 백업을 같은 리전의 다른 버킷에 저장한다',
+        '관리형 서비스는 알아서 복구되니 DR은 필요 없다',
+      ],
+      answer: 0,
+      why: '흔한 장애는 AZ · 리전 단위라 같은 사업자의 다른 리전이 가장 싸고 단순한 답입니다. 다른 클라우드의 액티브-액티브는 비용과 데이터 일관성 부담이 크고, 같은 리전 백업으로는 리전 장애를 못 막고 RPO 5분도 지키기 어렵습니다.',
+    },
+    {
+      q: '보안 규정상 NCP 공공 존의 NKS에 바깥 관리 클러스터의 Argo CD가 접속할 수 없습니다. 가장 좋은 방법은?',
+      options: [
+        'NKS 배포만 사람이 kubectl로 직접 한다',
+        '규정 예외를 받아 Argo CD에 클러스터 관리자 권한을 준다',
+        'NKS 안에 Argo CD를 따로 두고, 같은 Git 저장소의 공공 존 overlay를 당겨 오게 한다',
+        '공공 서비스를 EKS로 옮긴다',
+      ],
+      answer: 2,
+      why: 'GitOps는 클러스터가 Git을 당겨 오는 방식이라 바깥에서 들어오는 연결이 없어도 됩니다. 같은 Git을 기준으로 삼으니 배포 방식도 하나로 유지됩니다. 손 배포는 드리프트를 만들고, 공공 서비스를 옮기면 처음의 규제 요구를 어깁니다.',
+    },
+  ],
+};

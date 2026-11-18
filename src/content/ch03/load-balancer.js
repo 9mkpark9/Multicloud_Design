@@ -1,0 +1,278 @@
+export default {
+  id: 'load-balancer',
+  learn: [
+    '로드 밸런서·리스너·대상 그룹의 관계',
+    '헬스 체크로 고장 난 서버를 빼는 원리',
+    '대상을 여러 AZ에 나누는 이유',
+    'L4와 L7의 차이, 그리고 TLS 종료',
+    '스티키 세션의 대가와 무상태 서버',
+    '4대 클라우드의 로드 밸런서',
+  ],
+  legend: [['req', '요청'], ['res', '응답'], ['ctrl', '헬스 체크'], ['data', '세션 읽기·쓰기'], ['bad', '오류']],
+  metrics: [
+    { id: 'srv', label: '정상 서버', icon: 'server' },
+    { id: 'err', label: '오류율', icon: 'warn' },
+    { id: 'lat', label: '응답 시간', icon: 'timer' },
+    { id: 'cert', label: '인증서 관리', icon: 'key' },
+  ],
+  scene: {
+    zones: {
+      azA: { at: [4.4, -2.8], size: [2.2, 3.0], label: 'AZ a', color: 'blue', labelPos: 'back' },
+      azB: { at: [5.6, 0.6], size: [2.4, 2.8], label: 'AZ b', color: 'blue' },
+    },
+    nodes: {
+      users: { kind: 'users', at: [0, 2.6], label: '고객' },
+      lb: { at: [2.8, 1.4], label: 'Load\nBalancer', icon: 'split', color: 'orange' },
+      w1: { at: [5.4, -1.2], label: '웹 서버 1', sub: 'EC2', icon: 'server', color: 'blue' },
+      w2: { at: [6.8, 1.6], label: '웹 서버 2', sub: 'EC2', icon: 'server', color: 'blue' },
+      api: { at: [8.0, 4.0], label: 'API 서버', sub: 'EC2', icon: 'braces', color: 'purple' },
+      sess: { kind: 'cyl', at: [9.0, 0.0], label: '세션 저장소', icon: 'database', color: 'red' },
+      aws: { at: [3.6, -1.5], label: 'AWS', sub: 'ALB · NLB', icon: 'cloud', color: 'aws' },
+      azure: { at: [6.2, -1.5], label: 'Azure', sub: 'App GW · LB', icon: 'cloud', color: 'azure' },
+      gcp: { at: [3.6, 1.1], label: 'GCP', sub: 'Cloud LB', icon: 'cloud', color: 'gcp' },
+      ncp: { at: [6.2, 1.1], label: 'NCP', sub: 'Load Balancer', icon: 'cloud', color: 'ncp' },
+    },
+    edges: {
+      e_u_w1: { from: 'users', to: 'w1' },
+      e_u_lb: { from: 'users', to: 'lb', bi: true },
+      e_lb_w1: { from: 'lb', to: 'w1' },
+      e_lb_w2: { from: 'lb', to: 'w2' },
+      e_lb_api: { from: 'lb', to: 'api' },
+      e_w1_s: { from: 'w1', to: 'sess', style: 'dashed', bi: true },
+      e_w2_s: { from: 'w2', to: 'sess', style: 'dashed', bi: true },
+    },
+  },
+  steps: [
+    {
+      key: '서버 한 대', kind: 'problem', title: '서버 한 대에 모든 손님이 몰리면',
+      body: [
+        '<code>shop.example</code>이 웹 서버 한 대로 돌고 있습니다. DNS는 이 서버의 공인 IP를 가리킵니다. 할인 행사로 손님이 몰리자 CPU가 97%에 붙고, 응답이 몇 초씩 걸리고, 일부 요청은 실패합니다.',
+        '서버를 한 대 더 띄워도 문제가 남습니다. 고객은 둘 중 어느 IP로 가야 할까요? 그리고 이 한 대가 죽으면 사이트 전체가 멈춥니다. 이런 곳을 <b>단일 장애 지점</b>(SPOF)이라고 합니다.',
+      ],
+      callout: { type: 'key', text: '필요한 것은 서버 여러 대와, 그 앞에서 손님을 나눠 주는 <b>현관 하나</b>입니다.' },
+      show: ['users', 'w1'],
+      set: { w1: { state: 'hot', badge: 'CPU 97%', tone: 'bad' } },
+      flows: [
+        { path: ['users', 'w1'], kind: 'req', n: 5, gap: 0.25 },
+        { path: ['w1', 'users'], kind: 'bad', n: 1, delay: 1.6 },
+      ],
+      metrics: { srv: ['1대', 'warn'], err: ['4%', 'bad'], lat: ['2.8초', 'bad'], cert: ['서버에 직접', 'mute'] },
+    },
+    {
+      key: '로드 밸런서', kind: 'solution', title: '현관 하나: 로드 밸런서',
+      body: [
+        '<b>로드 밸런서</b>(LB)는 서버들 앞에서 요청을 받아 뒤의 서버로 나눠 줍니다. 고객은 LB의 주소 하나만 압니다. AWS의 LB에는 고정 DNS 이름이 붙고, <code>shop.example</code>이 그 이름을 가리키게 합니다.',
+        'LB 뒤의 서버 묶음을 <b>대상 그룹</b>(target group)이라고 합니다. LB의 <b>리스너</b>가 <code>443</code>에서 요청을 받아 대상 그룹으로 넘기고, 그 안에서는 차례대로(라운드 로빈) 또는 처리 중인 요청이 적은 서버를 고릅니다.',
+      ],
+      callout: { type: 'tip', text: '서버를 늘리고 줄여도 고객 쪽은 그대로입니다. 대상 그룹에 넣고 빼면 끝이에요. 앞 레슨의 sg-web도 이제 출발지를 <b>LB의 보안 그룹</b>으로 좁힙니다.' },
+      show: ['lb', 'w2'],
+      hide: ['e_u_w1'],
+      set: { w1: { state: null, badge: null } },
+      focus: ['lb'],
+      tags: [{ on: 'lb', text: '리스너 443', icon: 'signpost' }],
+      flows: [
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 2 },
+        { path: ['users', 'lb', 'w2'], kind: 'req', n: 2, delay: 0.5 },
+      ],
+      metrics: { srv: ['2대', 'ok'], err: ['0.1%', 'ok'], lat: ['0.3초', 'ok'], cert: ['서버마다', 'warn'] },
+      changes: [['+', '로드 밸런서 (주소 하나)'], ['+', '대상 그룹: 웹 서버 1 · 2'], ['~', 'DNS는 LB를 가리킴']],
+    },
+    {
+      key: '헬스 체크', kind: 'concept', title: '헬스 체크: 아픈 서버는 빼고 보냅니다',
+      body: [
+        'LB는 몇 초마다 각 대상에 <b>헬스 체크</b>를 보냅니다. 예를 들어 <code>GET /health</code>에 연속으로 <code>200</code>이 오면 healthy, 정해진 횟수만큼 연속으로 실패하면 <b>unhealthy</b>로 표시하고 요청을 보내지 않습니다.',
+        '웹 서버 2의 앱이 멈췄습니다. 체크가 몇 번 실패하자 LB는 모든 요청을 웹 서버 1로만 보냅니다. 서버 2가 다시 응답하면 자동으로 돌아옵니다.',
+      ],
+      callout: { type: 'warn', text: '감지에는 시간이 걸립니다. <b>간격 × 실패 횟수</b> 동안은 일부 요청이 죽은 서버로 갑니다. 그렇다고 너무 예민하게 잡으면 잠깐 느려진 서버가 빠졌다 들어왔다 합니다.' },
+      set: { w2: { state: 'down', badge: 'unhealthy', tone: 'bad' } },
+      tags: [{ on: 'w1', text: '/health → 200', tone: 'ok', pos: 'right' }],
+      flows: [
+        { path: ['lb', 'w1'], kind: 'ctrl', n: 1 }, { path: ['lb', 'w2'], kind: 'ctrl', n: 1 },
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 3, delay: 0.8 },
+      ],
+      metrics: { srv: ['1 / 2', 'warn'], lat: ['0.5초', 'warn'] },
+    },
+    {
+      key: '두 AZ', kind: 'concept', title: 'AZ 하나가 통째로 꺼져도',
+      body: [
+        '헬스 체크는 서버 한 대가 아니라 <b>AZ 전체</b>가 꺼질 때도 똑같이 동작합니다. 그래서 대상은 두 개 이상의 AZ에 나눠 둡니다. AWS ALB는 만들 때 최소 두 AZ의 서브넷을 고르게 되어 있고, LB 자신도 그 AZ들에 걸쳐 동작합니다.',
+        'AZ a에 장애가 나면 그쪽 대상은 모두 unhealthy가 되고 요청은 AZ b로만 갑니다. 조금 느려질 수는 있어도 서비스는 계속됩니다.',
+      ],
+      callout: { type: 'tip', text: '남은 AZ만으로 버틸 <b>여유 용량</b>을 두세요. 한쪽이 꺼지면 나머지가 두 배를 받습니다. 자동으로 늘리는 방법은 4장 「VM과 오토스케일링」에서 봅니다.' },
+      show: ['azA', 'azB'],
+      set: {
+        w2: { state: null, badge: null },
+        w1: { state: 'down', badge: 'AZ 장애', tone: 'bad' },
+        azA: { label: 'AZ a 장애', color: 'red' },
+      },
+      flows: [{ path: ['users', 'lb', 'w2'], kind: 'req', n: 3 }],
+      metrics: { lat: ['0.6초', 'warn'], err: ['0.2%', 'ok'] },
+      changes: [['+', '대상을 AZ a · AZ b에 분산'], ['~', 'AZ a 장애 → AZ b로만 전달']],
+    },
+    {
+      key: '전부 unhealthy', kind: 'case', title: '사례: 멀쩡한 서버가 전부 unhealthy',
+      body: [
+        '새 버전에서 앱의 상태 확인 주소를 <code>/healthz</code>로 바꿨는데, 대상 그룹의 체크 경로는 그대로 <code>/health</code>입니다. 서버는 멀쩡히 일하는데 체크마다 <code>404</code>를 받아 전부 unhealthy가 됩니다.',
+        '제품과 설정에 따라 LB는 <code>502</code>·<code>503</code>을 돌려주거나, AWS ALB처럼 "전부 비정상이면 전부에 보낸다"(fail open)로 버팁니다. 어느 쪽이든 경보가 울리고, 오토스케일링이 이 체크를 따르면 멀쩡한 서버를 계속 갈아 치웁니다.',
+      ],
+      callout: { type: 'tip', text: '체크 주소는 <b>가볍게, 인증 없이, 200만</b> 돌려주게 만드세요. 로그인 리다이렉트(302)나 LB를 막는 보안 그룹도 흔한 원인입니다.' },
+      set: {
+        azA: { label: 'AZ a', color: 'blue' },
+        w1: { state: 'down', badge: '404', tone: 'bad' },
+        w2: { state: 'down', badge: '404', tone: 'bad' },
+      },
+      tags: [{ on: 'lb', text: '/health ≠ /healthz', tone: 'bad', icon: 'warn' }],
+      flows: [
+        { path: ['lb', 'w1'], kind: 'ctrl', n: 1 }, { path: ['lb', 'w2'], kind: 'ctrl', n: 1 },
+        { path: ['users', 'lb'], kind: 'req', n: 2, delay: 0.6 },
+        { path: ['lb', 'users'], kind: 'bad', n: 2, delay: 1.4 },
+      ],
+      metrics: { srv: ['0 / 2', 'bad'], err: ['502 · 503', 'bad'] },
+    },
+    {
+      key: 'L4 · L7', kind: 'concept', title: 'L4와 L7: 어디까지 읽고 나누는가',
+      body: [
+        '<b>L4</b> 로드 밸런서는 IP와 포트만 보고 TCP·UDP 연결 단위로 넘깁니다. 내용을 열지 않아 빠르고, 게임 서버처럼 HTTP가 아닌 트래픽도 받습니다. AWS의 <b>NLB</b>가 여기에 속합니다.',
+        '<b>L7</b> 로드 밸런서는 HTTP를 이해합니다. <code>/api/*</code>는 API 서버로, 나머지는 웹 서버로 보내는 식으로 <b>경로·호스트·헤더</b>를 보고 나눕니다. AWS의 <b>ALB</b>가 여기에 속합니다.',
+      ],
+      callout: { type: 'key', text: '웹 서비스라면 대개 L7입니다. 아주 낮은 지연, 고정 IP, HTTP가 아닌 프로토콜이 필요할 때 L4를 고릅니다.' },
+      hide: ['azA', 'azB'],
+      show: ['api'],
+      set: { w1: { state: null, badge: null }, w2: { state: null, badge: null } },
+      panel: {
+        title: '무엇을 보고 나누나', icon: 'split',
+        rows: [['L4 · NLB', 'IP · 포트 · TCP/UDP', 'info'], ['L7 · ALB', 'HTTP 경로 · 호스트 · 헤더', 'accent']],
+      },
+      tags: [
+        { on: 'w1', text: '/*', pos: 'right' },
+        { on: 'api', text: '/api/*', tone: 'accent', pos: 'right' },
+      ],
+      flows: [
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 2 },
+        { path: ['users', 'lb', 'api'], kind: 'req', n: 2, delay: 0.6 },
+      ],
+      metrics: { srv: ['2 / 2', 'ok'], err: ['0.1%', 'ok'], lat: ['0.3초', 'ok'] },
+      changes: [['+', 'API 서버 대상 그룹'], ['+', '리스너 규칙: /api/* → API']],
+    },
+    {
+      key: 'TLS 종료', kind: 'solution', title: 'HTTPS의 암호는 LB에서 풉니다',
+      body: [
+        '서버마다 인증서를 깔면 서버가 늘 때마다 인증서를 복사하고 만료일을 챙겨야 합니다. 그래서 보통 LB에 인증서를 붙이고 거기서 복호화합니다. 이것을 <b>TLS 종료</b>(termination)라고 합니다.',
+        'AWS라면 ACM 인증서를 ALB 리스너에 연결하고 갱신도 맡깁니다. L7 LB는 어차피 경로를 읽으려면 암호를 풀어야 하죠. LB에서 서버까지는 VPC 안의 HTTP로 보내거나, 규정상 필요하면 다시 암호화합니다.',
+      ],
+      callout: { type: 'tip', text: '인증서 만료는 지금도 흔한 장애 원인입니다. 한 곳에 모으고 <b>자동 갱신</b>에 맡기기만 해도 위험이 크게 줄어요.' },
+      hide: ['api'],
+      set: {
+        lb: { badge: '인증서', tone: 'ok' },
+        e_u_lb: { label: 'HTTPS' },
+        e_lb_w1: { label: 'HTTP' }, e_lb_w2: { label: 'HTTP' },
+      },
+      focus: ['lb'],
+      flows: [
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 2 },
+        { path: ['users', 'lb', 'w2'], kind: 'req', n: 2, delay: 0.5 },
+      ],
+      metrics: { cert: ['LB 한 곳', 'ok'] },
+      changes: [['+', 'LB 리스너에 인증서'], ['-', '서버마다 깔던 인증서'], ['~', '갱신은 자동으로']],
+    },
+    {
+      key: '세션', kind: 'solution', title: '다른 서버로 가면 로그인이 풀린다면',
+      body: [
+        '웹 서버가 로그인 세션을 <b>자기 메모리</b>에 두고 있었습니다. 다음 요청이 다른 서버로 가면 그 서버는 이 고객을 모릅니다. 로그인이 풀리고 장바구니가 비어 보입니다.',
+        '<b>스티키 세션</b>은 LB가 쿠키로 "이 고객은 서버 1로"를 기억하는 방법입니다. 빠른 처방이지만 부하가 고르지 않고, 그 서버가 죽으면 세션도 사라집니다. 더 나은 답은 세션을 Redis 같은 <b>공용 저장소</b>로 빼는 것입니다.',
+      ],
+      callout: { type: 'key', text: '서버가 <b>무상태</b>(stateless)이면 어느 서버가 받아도 같은 답을 합니다. 그래야 헬스 체크로 빼고, AZ를 넘나들고, 마음대로 늘릴 수 있습니다.' },
+      show: ['sess'],
+      set: {
+        lb: { badge: null },
+        e_u_lb: { label: null }, e_lb_w1: { label: null }, e_lb_w2: { label: null },
+      },
+      focus: ['sess'],
+      flows: [
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 1 },
+        { path: ['users', 'lb', 'w2'], kind: 'req', n: 1, delay: 0.7 },
+        { path: ['w1', 'sess'], kind: 'data', n: 1, delay: 1.4 },
+        { path: ['w2', 'sess'], kind: 'data', n: 1, delay: 2.1 },
+      ],
+      changes: [['-', '서버 메모리의 세션'], ['+', '공용 세션 저장소'], ['~', '어느 서버가 받아도 같은 답']],
+    },
+    {
+      key: '4대 클라우드', kind: 'compare', title: '네 클라우드의 로드 밸런서',
+      body: [
+        'AWS는 L7의 <b>ALB</b>와 L4의 <b>NLB</b>로 나눕니다. Azure는 L4가 <b>Load Balancer</b>, L7이 <b>Application Gateway</b>이고, 여러 리전 앞의 전 세계 입구가 필요하면 Front Door를 씁니다.',
+        'GCP의 <b>Cloud Load Balancing</b>은 <b>글로벌</b>로 만들 수 있어, IP 하나로 여러 리전의 백엔드에 보냅니다. NCP의 <b>Load Balancer</b>는 만들 때 Application·Network 같은 유형을 고릅니다.',
+      ],
+      callout: { type: 'cloud', text: '이름은 달라도 고를 것은 같습니다. <b>L4인가 L7인가, 리전인가 글로벌인가, 인터넷용인가 내부용인가.</b>' },
+      hide: ['users', 'lb', 'w1', 'w2', 'sess'],
+      show: ['aws', 'azure', 'gcp', 'ncp'],
+      panel: {
+        title: 'L7과 L4', icon: 'cloud',
+        rows: [
+          ['AWS', 'ALB (L7) · NLB (L4)', 'aws'], ['Azure', 'App Gateway (L7) · LB (L4)', 'azure'],
+          ['GCP', 'Cloud LB (글로벌 가능)', 'gcp'], ['NCP', 'Load Balancer (유형 선택)', 'ncp'],
+        ],
+      },
+      tags: [
+        { on: 'aws', text: 'ALB · NLB', tone: 'aws' }, { on: 'azure', text: '+ Front Door (글로벌)', tone: 'azure' },
+        { on: 'gcp', text: 'Anycast IP 하나', tone: 'gcp', pos: 'bottom' }, { on: 'ncp', text: 'ALB · NLB 유형', tone: 'ncp', pos: 'bottom' },
+      ],
+    },
+    {
+      key: '정리', kind: 'recap', title: '정리: 주소 하나, 건강한 곳으로만',
+      body: [
+        '로드 밸런서는 고객에게 <b>주소 하나</b>를 주고, 헬스 체크를 통과한 대상에만, 여러 AZ에 걸쳐 요청을 나눕니다. L7은 경로로 나누고 TLS를 한 곳에서 풀며, 세션은 서버 밖에 둡니다.',
+        '하지만 LB가 서울에 있는 한 미국 고객은 태평양을 건너야 합니다. 다음 레슨에서는 고객 가까이에서 답하는 <b>CDN</b>과, 리전 사이에서 길을 고르는 <b>DNS</b>를 봅니다.',
+      ],
+      hide: ['aws', 'azure', 'gcp', 'ncp'],
+      show: ['users', 'lb', 'w1', 'w2', 'azA', 'azB'],
+      focus: ['lb'],
+      flows: [
+        { path: ['lb', 'w1'], kind: 'ctrl', n: 1 }, { path: ['lb', 'w2'], kind: 'ctrl', n: 1 },
+        { path: ['users', 'lb', 'w1'], kind: 'req', n: 2, delay: 0.6 },
+        { path: ['users', 'lb', 'w2'], kind: 'req', n: 2, delay: 1.0 },
+      ],
+      metrics: { srv: ['2 / 2', 'ok'], err: ['0.1%', 'ok'], lat: ['0.3초', 'ok'] },
+    },
+  ],
+  quiz: [
+    {
+      q: '배포 직후 대상 그룹의 서버가 전부 unhealthy로 바뀌었습니다. 서버에 직접 접속해 보면 앱은 정상입니다. 가장 먼저 확인할 것은?',
+      options: [
+        '서버의 CPU와 메모리 사용률',
+        '헬스 체크의 경로·포트·기대 응답 코드, 그리고 LB가 그 포트로 들어올 수 있는지',
+        'LB의 리스너 인증서 만료일',
+        'DNS 레코드가 LB를 가리키는지',
+      ],
+      answer: 1,
+      why: '앱이 정상인데 전부 unhealthy라면 체크 자체가 틀렸을 가능성이 큽니다. 바뀐 경로(404), 로그인 리다이렉트(302), LB를 막는 보안 그룹이 흔한 원인입니다. 인증서나 DNS는 고객 쪽 연결의 문제이지 헬스 체크와는 관계가 없습니다.',
+    },
+    {
+      q: '/api/* 요청은 API 서버 그룹으로, 나머지는 웹 서버 그룹으로 보내고 싶습니다. 알맞은 선택은?',
+      options: ['L4 로드 밸런서 (NLB)', 'L7 로드 밸런서 (ALB · Application Gateway)', 'DNS 레코드를 두 개 만든다', '스티키 세션을 켠다'],
+      answer: 1,
+      why: '경로는 HTTP 안에 있으므로 HTTP를 해석하는 L7만 볼 수 있습니다. L4는 IP와 포트만 보고, DNS는 이름 단위라 경로를 모릅니다. 스티키 세션은 같은 고객을 같은 서버로 보내는 기능입니다.',
+    },
+    {
+      q: '스티키 세션으로 "로그인 풀림" 문제를 막았습니다. 이 방식에 남는 위험으로 가장 알맞은 것은?',
+      options: [
+        'TLS를 LB에서 종료할 수 없게 된다',
+        '서버가 죽거나 교체되면 그 서버에 묶인 고객의 세션이 사라지고, 부하도 고르지 않게 된다',
+        '헬스 체크가 동작하지 않는다',
+        'L4 로드 밸런서로만 쓸 수 있다',
+      ],
+      answer: 1,
+      why: '스티키 세션은 상태를 여전히 서버 메모리에 둡니다. 그 서버가 빠지면 세션도 함께 사라지고, 특정 서버에 고객이 몰릴 수 있습니다. 근본 해결은 세션을 공용 저장소로 빼서 서버를 무상태로 만드는 것입니다.',
+    },
+    {
+      q: 'LB는 두 AZ에 걸쳐 만들었지만, 웹 서버 두 대는 비용 때문에 모두 AZ a에 두었습니다. AZ a에 장애가 나면?',
+      options: [
+        'LB가 AZ b에 서버를 자동으로 새로 만든다',
+        'LB가 두 AZ에 있으므로 영향이 없다',
+        '보낼 healthy 대상이 없어 서비스가 멈춘다',
+        '헬스 체크가 꺼지고 요청이 그대로 AZ a로 간다',
+      ],
+      answer: 2,
+      why: 'LB가 여러 AZ에 있어도 일을 하는 것은 대상 서버입니다. 대상이 한 AZ에만 있으면 그 AZ와 함께 사라집니다. 서버를 새로 만드는 것은 LB가 아니라 오토스케일링의 일이고, 그것도 다른 AZ를 쓰도록 설정해야 합니다.',
+    },
+  ],
+};

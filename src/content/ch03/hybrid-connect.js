@@ -1,0 +1,271 @@
+export default {
+  id: 'hybrid-connect',
+  learn: [
+    '떨어진 네트워크를 사설 IP로 이어야 하는 이유',
+    'Site-to-Site VPN: IPsec 터널과 양쪽 경로',
+    '대역이 겹치면 연결할 수 없는 이유',
+    '전용선의 장점과 값, 그리고 VPN 백업',
+    'VPC 피어링과 전이되지 않는 성질',
+    'Transit Gateway 같은 허브와 4대 클라우드의 이름',
+  ],
+  legend: [['req', '요청'], ['res', '응답'], ['data', '대량 데이터'], ['bad', '경로 없음 · 위험']],
+  metrics: [
+    { id: 'path', label: '사설 경로', icon: 'route' },
+    { id: 'lat', label: '지연', icon: 'timer' },
+    { id: 'lead', label: '구축 시간', icon: 'calendar' },
+    { id: 'links', label: '관리할 연결', icon: 'link' },
+  ],
+  scene: {
+    zones: {
+      vpcA: { at: [-1.5, -10.7], size: [3.0, 2.6], label: 'VPC A 10.0.0.0/16', color: 'purple' },
+    },
+    nodes: {
+      // 사무실 ↔ VPC
+      office: { at: [0, 0], label: '사무실', sub: '172.16.0.0/16', icon: 'building', color: 'sand' },
+      inet: { at: [0, -3.0], size: 's', label: '인터넷', icon: 'globe', color: 'gray' },
+      dx: { at: [3.0, -6.0], size: 's', label: '전용선\n접속점', icon: 'cable', color: 'teal' },
+      vgw: { at: [0, -6.0], label: '가상\n게이트웨이', sub: 'VGW', icon: 'lock', color: 'orange' },
+      app: { at: [0, -9.4], label: '주문 서버', sub: '10.0.11.20', icon: 'server', color: 'blue' },
+      // VPC ↔ VPC (한 걸음 물러서서)
+      hq: { at: [5.0, 3.4], label: '사무실', sub: '172.16.0.0/16', icon: 'building', color: 'sand' },
+      va: { at: [8.4, 0], label: 'VPC A\n서비스', sub: '10.0.0.0/16', icon: 'network', color: 'purple' },
+      vb: { at: [5.0, -3.4], label: 'VPC B\n분석', sub: '10.4.0.0/16', icon: 'network', color: 'blue' },
+      vc: { at: [1.6, 0], label: 'VPC C\n공용 도구', sub: '10.5.0.0/16', icon: 'network', color: 'teal' },
+      tgw: { at: [5.0, 0], label: 'Transit\nGateway', icon: 'waypoints', color: 'orange' },
+      // 4대 클라우드
+      aws: { at: [3.6, -1.5], label: 'AWS', sub: 'VPC 피어링', icon: 'cloud', color: 'aws' },
+      azure: { at: [6.2, -1.5], label: 'Azure', sub: 'VNet 피어링', icon: 'cloud', color: 'azure' },
+      gcp: { at: [3.6, 1.1], label: 'GCP', sub: 'VPC 피어링', icon: 'cloud', color: 'gcp' },
+      ncp: { at: [6.2, 1.1], label: 'NCP', sub: 'VPC Peering', icon: 'cloud', color: 'ncp' },
+    },
+    edges: {
+      e_oi: { from: 'office', to: 'inet', bi: true },
+      e_ia: { from: 'inet', to: 'app', bi: true, tone: 'bad' },
+      e_iv: { from: 'inet', to: 'vgw', bi: true },
+      e_va: { from: 'vgw', to: 'app', bi: true },
+      e_od: { from: 'office', to: 'dx', bi: true, tone: 'accent' },
+      e_dv: { from: 'dx', to: 'vgw', bi: true, tone: 'accent' },
+      e_ha: { from: 'hq', to: 'va', bi: true, label: 'VPN · 전용선' },
+      e_ab: { from: 'va', to: 'vb', bi: true, label: '피어링' },
+      e_bc: { from: 'vb', to: 'vc', bi: true, label: '피어링' },
+      e_ac: { from: 'va', to: 'vc', style: 'dashed', tone: 'bad', label: '경로 없음' },
+      e_hb: { from: 'hq', to: 'vb', style: 'dashed', tone: 'bad', off: true },
+      e_ht: { from: 'hq', to: 'tgw', bi: true },
+      e_at: { from: 'va', to: 'tgw', bi: true },
+      e_bt: { from: 'vb', to: 'tgw', bi: true },
+      e_ct: { from: 'vc', to: 'tgw', bi: true },
+    },
+  },
+  steps: [
+    {
+      key: '인터넷뿐', kind: 'problem', title: '사무실과 VPC 사이에는 인터넷뿐',
+      body: [
+        '<code>shop.example</code>의 주문 서버는 VPC의 프라이빗 서브넷에 있습니다. 그런데 재고는 아직 사무실 전산실의 시스템이 관리합니다. 주문이 들어올 때마다 주문 서버(<code>10.0.11.20</code>)와 재고 시스템(<code>172.16.5.20</code>)이 서로를 호출해야 합니다.',
+        '둘 다 사설 IP라 인터넷에서는 서로 보이지 않습니다. 지금 가능한 방법은 양쪽에 공인 IP를 붙이고 방화벽을 인터넷 쪽으로 여는 것뿐입니다. 애써 숨긴 서버를 다시 길가에 내놓는 셈이죠.',
+      ],
+      callout: { type: 'key', text: '필요한 것은 떨어진 두 네트워크를 <b>사설 IP 그대로</b> 잇는 길입니다. 이 레슨은 그 방법 세 가지와, 연결이 많아질 때 쓰는 허브를 봅니다.' },
+      show: ['office', 'inet', 'vpcA', 'app'],
+      set: { app: { state: 'hot' } },
+      tags: [{ on: 'app', text: '공인 IP · 포트 개방', tone: 'bad', icon: 'unlock' }],
+      flows: [
+        { path: ['office', 'inet', 'app'], kind: 'req', n: 2 }, { path: ['app', 'inet', 'office'], kind: 'res', n: 2, delay: 2.2 },
+        { path: ['inet', 'app'], kind: 'bad', n: 2, delay: 1 },
+      ],
+      metrics: { path: ['공인 인터넷', 'bad'], lat: ['들쭉날쭉', 'warn'], lead: '—', links: '0개' },
+    },
+    {
+      key: 'VPN 터널', kind: 'solution', title: 'Site-to-Site VPN: 인터넷 위의 터널',
+      body: [
+        '<b>Site-to-Site VPN</b>은 두 네트워크의 출입구끼리 <b>IPsec</b> 암호화 터널을 맺는 방식입니다. AWS라면 VPC에 <b>가상 프라이빗 게이트웨이</b>(VGW)를 붙이고, 사무실 라우터의 공인 IP를 <b>고객 게이트웨이</b>로 등록한 뒤 양쪽에 같은 설정을 넣습니다.',
+        '패킷은 여전히 인터넷을 지나지만, 사설 IP가 적힌 원래 패킷은 통째로 암호화되어 터널 속에 들어 있습니다. 서버들은 터널이 있는 줄도 모르고 사설 IP로 통신합니다. 회선 공사가 없으니 <b>몇 시간이면</b> 맺습니다.',
+      ],
+      callout: { type: 'tip', text: 'AWS는 VPN 연결 하나에 터널을 <b>두 개</b> 줍니다. 한쪽이 점검으로 내려가도 이어지도록 둘 다 설정하세요. 재택 직원의 PC 한 대를 붙이는 <b>Client VPN</b>은 이름만 비슷한 다른 서비스입니다.' },
+      show: ['vgw'],
+      hide: ['e_ia'],
+      set: { app: { state: null }, e_oi: { tone: 'ok' }, e_iv: { tone: 'ok' } },
+      focus: ['vgw'],
+      tags: [{ on: 'inet', text: '암호화 터널 2개', tone: 'ok', icon: 'lock', dx: -12 }],
+      flows: [
+        { path: ['office', 'inet', 'vgw', 'app'], kind: 'req', n: 2 },
+        { path: ['app', 'vgw', 'inet', 'office'], kind: 'res', n: 2, delay: 2.6 },
+      ],
+      metrics: { path: ['IPsec VPN', 'ok'], lead: ['몇 시간', 'ok'], links: '1개' },
+      changes: [['+', '가상 프라이빗 게이트웨이 (VPC 쪽)'], ['+', '고객 게이트웨이 = 사무실 라우터'], ['-', '서버의 공인 IP']],
+    },
+    {
+      key: '터널은 UP', kind: 'case', title: '사례: 터널은 UP인데 통신이 안 됩니다',
+      body: [
+        '콘솔의 터널 상태는 <code>UP</code>입니다. 그런데 사무실에서 주문 서버로 보낸 요청에 답이 없습니다. 터널은 길일 뿐이고, 그 길로 <b>보내라는 경로</b>는 따로 적어야 하기 때문입니다.',
+        '주문 서버의 응답은 목적지가 <code>172.16.5.20</code>입니다. 서브넷의 라우팅 테이블에 <code>172.16.0.0/16 → VGW</code>가 없으면 갈 곳을 몰라 버려집니다. 사무실 라우터에도 <code>10.0.0.0/16 → 터널</code>이 있어야 하고, 방화벽도 양쪽에서 상대 대역을 허용해야 합니다.',
+      ],
+      callout: { type: 'tip', text: '경로를 손으로 적는 대신 <b>BGP</b>로 양쪽이 대역을 서로 알리게 하고, VPC에서 <b>경로 전파</b>를 켜 두면 빠뜨릴 일이 줄어듭니다.' },
+      set: { app: { state: 'hot' } },
+      panel: {
+        title: '통신이 되려면 넷 다 필요', icon: 'list',
+        rows: [['VPC 라우팅 테이블', '172.16.0.0/16 → VGW', 'bad'], ['사무실 라우터', '10.0.0.0/16 → 터널', 'ok'], ['보안 그룹', '172.16.0.0/16 허용', 'ok'], ['사무실 방화벽', '10.0.0.0/16 허용', 'ok']],
+      },
+      tags: [{ on: 'app', text: '응답이 갈 경로 없음', tone: 'bad' }],
+      flows: [
+        { path: ['office', 'inet', 'vgw', 'app'], kind: 'req', n: 2 },
+        { path: ['app', [0, -7.9]], kind: 'bad', n: 2, delay: 2.6, gap: 0.5 },
+      ],
+      metrics: { path: ['터널 UP · 불통', 'bad'] },
+      changes: [['-', 'VPC 라우팅에 사무실 경로 누락'], ['+', '172.16.0.0/16 → VGW (경로 전파)'], ['~', '경로도 방화벽도 양쪽 모두']],
+    },
+    {
+      key: '대역 겹침', kind: 'concept', title: '대역이 겹치면 경로를 쓸 수 없습니다',
+      body: [
+        '부산 지사도 같은 방법으로 붙이려 합니다. 그런데 지사 네트워크가 <code>10.0.0.0/16</code>, VPC와 같은 대역입니다. 주문 서버가 지사의 <code>10.0.5.20</code>으로 패킷을 보내면 어떻게 될까요?',
+        '라우팅 테이블에는 VPC 자신의 대역을 가리키는 <code>10.0.0.0/16 → local</code>이 항상 있고, 이 경로가 이깁니다. 패킷은 VPC 안에서 그 주소를 찾다가 사라지고 터널로는 나가지 않습니다. 같은 주소가 양쪽에 있으면 라우터는 둘을 구별할 수 없습니다.',
+      ],
+      callout: { type: 'warn', text: 'VPN · 전용선 · 피어링 모두 같은 제약을 받습니다. 2장에서 대역을 겹치지 않게 계획한 이유예요. 이미 겹쳤다면 한쪽을 다시 만들거나, 주소를 바꿔 주는 NAT를 끼우는 고된 우회만 남습니다.' },
+      set: {
+        office: { label: '부산 지사', sub: '10.0.0.0/16', state: 'hot', badge: '대역 겹침', tone: 'bad' },
+        app: { state: null },
+      },
+      panel: {
+        title: 'VPC A의 라우팅 테이블', icon: 'signpost',
+        rows: [['10.0.0.0/16', 'local (항상 우선)', 'warn'], ['172.16.0.0/16', 'VGW · 본사 사무실', 'ok'], ['10.0.0.0/16 (지사)', '넣을 수 없음', 'bad']],
+      },
+      tags: [{ on: 'app', text: '10.0.5.20 → local', tone: 'bad' }],
+      flows: [{ path: ['app', [0, -7.9]], kind: 'bad', n: 3, gap: 0.5 }],
+      metrics: { path: ['지사는 연결 불가', 'bad'] },
+    },
+    {
+      key: '전용선', kind: 'solution', title: '전용선: 인터넷을 거치지 않는 회선',
+      body: [
+        '주문이 늘자 VPN의 한계가 보입니다. 인터넷 상태에 따라 지연이 출렁이고, 터널 하나가 처리하는 양에도 상한이 있습니다. <b>전용선</b>(AWS의 <b>Direct Connect</b>)은 통신사 회선으로 사무실과 클라우드의 접속 지점을 직접 잇습니다. 인터넷을 거치지 않으니 지연이 일정하고 대역폭이 큽니다.',
+        '값도 큽니다. 회선 공사와 계약으로 개통에 <b>몇 주에서 몇 달</b>이 걸리고, 쓰지 않아도 매달 고정비가 나갑니다. 그리고 전용선은 기본으로는 <b>암호화되지 않습니다</b>.',
+      ],
+      callout: { type: 'key', text: '회선 하나는 그 자체로 단일 장애 지점입니다. 굴착 공사 한 번에 끊깁니다. 회선을 이중화하거나, 적어도 <b>VPN을 백업 경로</b>로 남겨 두세요.' },
+      show: ['dx'],
+      set: {
+        office: { label: '사무실', sub: '172.16.0.0/16', state: null, badge: null },
+        e_oi: { tone: 'mute', style: 'dashed' }, e_iv: { tone: 'mute', style: 'dashed' },
+      },
+      focus: ['dx'],
+      panel: {
+        title: 'VPN과 전용선', icon: 'scale',
+        rows: [['Site-to-Site VPN', '빠른 구축 · 지연 변동', 'info'], ['전용선', '지연 일정 · 큰 대역폭', 'ok'], ['전용선의 값', '개통 몇 주 · 월 고정비', 'warn'], ['암호화', 'VPN 기본 · 전용선은 별도', 'warn']],
+      },
+      tags: [{ on: 'dx', text: '인터넷을 안 거침', tone: 'ok', pos: 'bottom' }, { on: 'inet', text: 'VPN은 백업' }],
+      flows: [
+        { path: ['office', 'dx', 'vgw', 'app'], kind: 'data', n: 4, gap: 0.3 },
+        { path: ['app', 'vgw', 'dx', 'office'], kind: 'res', n: 2, delay: 2.8 },
+      ],
+      metrics: { path: ['전용선 + VPN', 'ok'], lat: ['일정', 'ok'], lead: ['몇 주 ~ 몇 달', 'warn'], links: '2개' },
+      changes: [['+', '전용선 (Direct Connect)'], ['~', 'VPN은 백업 경로로'], ['~', '지연: 들쭉날쭉 → 일정']],
+    },
+    {
+      key: 'VPC 피어링', kind: 'solution', title: 'VPC 피어링: 클라우드 안의 두 VPC',
+      body: [
+        '이번에는 클라우드 안쪽입니다. 분석팀이 자기 계정에 <b>VPC B</b>를 만들었고, 주문 DB의 복제본을 읽어야 합니다. 같은 클라우드의 두 VPC는 <b>VPC 피어링</b>으로 잇습니다. 한쪽이 요청하고 상대가 수락하면, 두 VPC가 사업자의 내부망을 통해 사설 IP로 통신합니다.',
+        '게이트웨이 장비도 터널도 없어서 병목이 없고 시간당 요금도 없습니다(데이터 전송 요금은 붙습니다). 다른 계정, 다른 리전의 VPC와도 맺을 수 있어요. 여기서도 <b>양쪽 라우팅 테이블</b>에 상대 대역을 넣어야 통합니다.',
+      ],
+      callout: { type: 'tip', text: '피어링은 두 VPC 전체를 잇는 길입니다. 실제로 열 범위는 좁히세요. 경로는 필요한 서브넷 대역만, 보안 그룹은 필요한 포트만.' },
+      hide: ['office', 'inet', 'dx', 'vgw', 'app', 'vpcA'],
+      show: ['hq', 'va', 'vb'],
+      focus: ['vb'],
+      panel: {
+        title: '수락한 뒤에 할 일', icon: 'list',
+        rows: [['VPC A 라우팅', '10.4.0.0/16 → 피어링', 'info'], ['VPC B 라우팅', '10.0.0.0/16 → 피어링', 'info'], ['보안 그룹', '상대 대역 · 필요한 포트만', 'ok']],
+      },
+      flows: [
+        { path: ['vb', 'va'], kind: 'req', n: 2 }, { path: ['va', 'vb'], kind: 'res', n: 2, delay: 1.6 },
+        { path: ['hq', 'va'], kind: 'data', n: 2, delay: 0.4 },
+      ],
+      metrics: { links: '3개' },
+      changes: [['+', 'VPC B 10.4.0.0/16 (분석)'], ['+', 'A–B 피어링 + 양쪽 경로']],
+    },
+    {
+      key: '전이 안 됨', kind: 'case', title: '사례: A–B, B–C는 되는데 A–C가 안 됩니다',
+      body: [
+        '로그와 배포 도구를 모은 <b>VPC C</b>가 생겨 B와 피어링했습니다. A–B, B–C가 이어졌으니 A에서 B를 거쳐 C로도 갈 수 있을 것 같지만, 패킷은 가지 않습니다. 피어링은 <b>전이적이지 않습니다</b>. 맺은 두 VPC 사이의 통신만 실어 줍니다.',
+        '같은 이유로 상대 VPC의 출입구도 빌려 쓸 수 없습니다. 사무실에서 VPN으로 A에 들어온 패킷은 피어링을 건너 B로 가지 못하고, B가 A의 NAT로 인터넷에 나갈 수도 없습니다.',
+      ],
+      callout: { type: 'warn', text: 'A와 C가 통해야 하면 A–C 피어링을 따로 맺어야 합니다. VPC가 n개면 피어링은 <b>n(n−1)/2</b>개. 4개면 6개, 10개면 45개이고 라우팅 테이블도 그만큼 늘어납니다.' },
+      show: ['vc', 'e_hb'],
+      tags: [{ on: 'vc', text: 'A에서는 안 보임', tone: 'bad' }, { on: 'hq', text: 'B · C에 못 감', tone: 'bad' }],
+      flows: [
+        { path: ['va', 'vb'], kind: 'req', n: 2 }, { path: ['vb', 'vc'], kind: 'req', n: 2, delay: 0.4 },
+        { path: ['va', 'vc'], kind: 'bad', n: 2, delay: 1.2, gap: 0.5 }, { path: ['hq', 'vb'], kind: 'bad', n: 2, delay: 1.6, gap: 0.5 },
+      ],
+      metrics: { links: ['VPC 4개면 6개', 'bad'] },
+      changes: [['+', 'B–C 피어링'], ['-', 'A → C: 경로 없음'], ['-', '사무실 → B: VPN을 건너 쓰지 못함']],
+    },
+    {
+      key: '허브 · TGW', kind: 'solution', title: 'Transit Gateway: 가운데에 허브를',
+      body: [
+        '<b>Transit Gateway</b>(TGW)는 리전 안의 클라우드 라우터입니다. VPC, VPN, 전용선을 각각 <b>연결</b>(attachment)로 붙이면 TGW가 가운데에서 서로 전달해 줍니다. 연결은 n개면 되고, 피어링과 달리 <b>거쳐 가는 통신</b>이 됩니다. 사무실도 VPN 하나로 모든 VPC에 닿습니다.',
+        '누가 누구와 통하는지는 TGW의 <b>라우팅 테이블</b>로 정합니다. 예를 들어 운영 VPC와 개발 VPC는 서로 못 보게 하고, 둘 다 공용 도구 VPC에만 닿게 나눌 수 있습니다.',
+      ],
+      callout: { type: 'tip', text: 'TGW에는 연결마다 시간당 요금과 처리한 데이터 요금이 붙습니다. VPC가 두세 개뿐이고 늘어날 계획이 없으면 피어링이 더 싸고 단순합니다. 허브는 연결이 늘어날 때 값을 합니다.' },
+      show: ['tgw'],
+      hide: ['e_ha', 'e_ab', 'e_bc', 'e_ac', 'e_hb'],
+      focus: ['tgw'],
+      flows: [
+        { path: ['hq', 'tgw', 'vb'], kind: 'req', n: 2 }, { path: ['va', 'tgw', 'vc'], kind: 'req', n: 2, delay: 0.6 },
+      ],
+      metrics: { path: ['TGW 허브', 'ok'], links: ['허브에 4개', 'ok'] },
+      changes: [['+', 'Transit Gateway'], ['~', '피어링 메시 → 허브 연결 4개'], ['~', '사무실에서 모든 VPC에 도달']],
+    },
+    {
+      key: '4대 클라우드', kind: 'compare', title: '네 클라우드의 연결 서비스',
+      body: [
+        '이름만 다르고 뼈대는 같습니다. 사무실과 잇는 VPN은 AWS <b>Site-to-Site VPN</b>, Azure <b>VPN Gateway</b>, GCP <b>Cloud VPN</b>, NCP <b>IPsec VPN</b>입니다. 전용선의 이름은 표에 모았습니다.',
+        '피어링도 네 곳 모두 있고, 맺은 둘 사이만 잇는다는 원칙도 같습니다. 차이도 있어요. GCP의 VPC는 글로벌이라 리전 사이를 따로 이을 필요가 없고, Azure는 피어링에서 <b>게이트웨이 전송</b>을 켜면 스포크 VNet이 허브의 VPN 게이트웨이를 빌려 쓸 수 있습니다.',
+      ],
+      callout: { type: 'cloud', text: '허브는 AWS Transit Gateway, Azure Virtual WAN, GCP Network Connectivity Center가 맡습니다. 서로 다른 클라우드끼리 잇는 설계는 마지막 장 「멀티클라우드 네트워크」에서 다룹니다.' },
+      hide: ['hq', 'va', 'vb', 'vc', 'tgw'],
+      show: ['aws', 'azure', 'gcp', 'ncp'],
+      panel: {
+        title: '전용선 서비스', icon: 'cable',
+        rows: [['AWS', 'Direct Connect', 'aws'], ['Azure', 'ExpressRoute', 'azure'], ['GCP', 'Cloud Interconnect', 'gcp'], ['NCP', 'Cloud Connect', 'ncp']],
+      },
+      tags: [
+        { on: 'aws', text: '허브: Transit Gateway', tone: 'aws' }, { on: 'azure', text: '허브: Virtual WAN', tone: 'azure', dx: 18 },
+        { on: 'gcp', text: '글로벌 VPC · NCC', tone: 'gcp', pos: 'bottom', dx: -18 }, { on: 'ncp', text: 'IPsec VPN', tone: 'ncp', pos: 'bottom' },
+      ],
+    },
+    {
+      key: '정리', kind: 'recap', title: '정리: 터널, 전용선, 피어링, 그리고 허브',
+      body: [
+        '사무실과 클라우드는 <b>Site-to-Site VPN</b>으로 빠르게 잇고, 트래픽이 크거나 지연이 중요해지면 <b>전용선</b>을 놓되 VPN을 백업으로 둡니다. 클라우드 안의 VPC끼리는 <b>피어링</b>, 연결이 많아지면 <b>허브</b>로 모읍니다.',
+        '어느 방법이든 세 가지는 같습니다. 대역이 겹치면 안 되고, 경로는 양쪽에 있어야 하고, 방화벽도 양쪽에서 열어야 합니다. 이것으로 클라우드 네트워크를 마칩니다. 다음 장에서는 이 네트워크 위에 올릴 <b>VM과 오토스케일링</b>을 봅니다.',
+      ],
+      hide: ['aws', 'azure', 'gcp', 'ncp'],
+      show: ['hq', 'va', 'vb', 'vc', 'tgw'],
+      focus: ['tgw'],
+      flows: [
+        { path: ['hq', 'tgw', 'va'], kind: 'data', n: 2 }, { path: ['vb', 'tgw', 'va'], kind: 'req', n: 2, delay: 0.5 },
+        { path: ['va', 'tgw', 'vc'], kind: 'req', n: 2, delay: 1 },
+      ],
+    },
+  ],
+  quiz: [
+    {
+      q: 'Site-to-Site VPN의 터널 상태는 UP입니다. 사무실에서 보낸 요청은 VPC의 서버 로그에 찍히는데 응답이 사무실에 오지 않습니다. 가장 먼저 확인할 것은?',
+      options: ['터널의 사전 공유 키가 맞는지', '서버가 있는 서브넷의 라우팅 테이블에 사무실 대역으로 가는 경로가 있는지', '전용선의 대역폭이 충분한지', '사무실 PC의 DNS 캐시'],
+      answer: 1,
+      why: '요청이 도착했다면 터널과 가는 경로는 정상입니다. 응답이 돌아갈 경로(사무실 대역 → VPN 게이트웨이)가 VPC 쪽에 없을 가능성이 큽니다. 키가 틀렸다면 터널 자체가 UP이 되지 않습니다.',
+    },
+    {
+      q: '3주 뒤 서비스를 열어야 하고, 사무실 재고 시스템과 VPC 사이의 트래픽은 하루 몇 GB 수준입니다. 가장 알맞은 선택은?',
+      options: ['전용선만 놓는다. 가장 안정적이니까', 'Site-to-Site VPN으로 시작하고, 트래픽이 커지면 전용선을 더해 VPN은 백업으로 둔다', '양쪽 서버에 공인 IP를 붙이고 방화벽에서 IP를 제한한다', '사무실과 VPC를 VPC 피어링으로 잇는다'],
+      answer: 1,
+      why: '전용선은 개통에 몇 주에서 몇 달이 걸리고 고정비가 큽니다. 이 정도 트래픽과 일정에는 VPN이 맞고, 나중에 전용선을 놓아도 VPN은 백업으로 쓸모가 있습니다. 피어링은 VPC와 VPC 사이의 연결입니다.',
+    },
+    {
+      q: 'VPC A–B, B–C가 피어링되어 있습니다. A의 서버가 C의 로그 수집기로 데이터를 보내야 합니다. 알맞은 조치는?',
+      options: ['B의 라우팅 테이블에 A에서 C로 가는 경로를 넣는다', 'A–C 피어링을 따로 맺거나, 세 VPC를 Transit Gateway 같은 허브에 붙인다', 'B에 NAT Gateway를 만든다', 'C의 보안 그룹을 0.0.0.0/0으로 연다'],
+      answer: 1,
+      why: '피어링은 전이되지 않아서 B가 A의 패킷을 C로 넘겨 주지 않습니다. B의 라우팅을 고쳐도 마찬가지입니다. 직접 피어링을 추가하거나, 거쳐 가는 통신을 지원하는 허브를 써야 합니다.',
+    },
+    {
+      q: '인수한 회사의 VPC가 우리 VPC와 같은 10.0.0.0/16을 씁니다. 두 VPC를 사설로 이어야 합니다. 가장 적절한 판단은?',
+      options: ['피어링을 맺고 라우팅 우선순위를 조정한다', 'Transit Gateway를 쓰면 대역이 겹쳐도 된다', '겹친 채로는 이을 수 없다. 한쪽을 겹치지 않는 대역으로 옮기는 계획을 세운다', '보안 그룹으로 두 대역을 구별한다'],
+      answer: 2,
+      why: '같은 주소가 양쪽에 있으면 라우터가 목적지를 구별할 수 없고, 자기 VPC의 local 경로가 항상 이깁니다. 허브나 방화벽은 이 문제를 풀어 주지 않습니다. NAT로 우회할 수는 있지만 복잡한 임시방편입니다.',
+    },
+  ],
+};
