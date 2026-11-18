@@ -248,6 +248,7 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     lesson: lessonId,
     update(n) {
       const next = Math.min(Math.max(1, n), total);
+      if (next === step) return;
       const mode = next === step + 1 || next === step - 1 ? 'next' : 'build';
       step = next;
       paint(mode);

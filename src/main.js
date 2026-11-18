@@ -41,10 +41,17 @@ function parse() {
   return { view: 'learn', lesson: lastLesson, step: 1 };
 }
 
+/**
+ * Move to another view or step without a browser navigation: the address is updated with
+ * history.pushState and the app re-routes itself. Changing location.hash (or following an
+ * <a href="#/…">) is a navigation, and some in-app browsers on iPhone/iPad answer it by
+ * loading the page again, which throws away every animation.
+ */
 export function go(hash, replace = false) {
+  if (hash === location.hash) return;
   if (replace) history.replaceState(null, '', hash);
-  else location.hash = hash;
-  if (replace) onRoute();
+  else history.pushState(null, '', hash);
+  onRoute();
 }
 
 function applyTheme() {
@@ -148,9 +155,14 @@ function paintTabs() {
   });
 }
 
+let routeKey = '';
 function onRoute() {
   const prev = route;
-  route = parse();
+  const next = parse();
+  const key = JSON.stringify(next);
+  if (key === routeKey && unmount) return; // back/forward fires both popstate and hashchange
+  routeKey = key;
+  route = next;
   if (route.view === 'learn') {
     lastLesson = route.lesson;
     store.toggleOpen(LESSON_META[route.lesson].chapter.id, true);
@@ -181,6 +193,15 @@ applyTheme();
 if (!store.open.size) store.toggleOpen(CHAPTERS[0].id, true);
 shell();
 window.addEventListener('hashchange', onRoute);
+window.addEventListener('popstate', onRoute);
+// in-app links ("#/…") are handled here instead of by the browser (see go())
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest?.('a[href^="#/"]');
+  if (!a || a.target) return;
+  e.preventDefault();
+  go(a.getAttribute('href'));
+});
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(go); }
 });
