@@ -120,7 +120,7 @@ export default {
           '<b>의존성</b>: <code>node_modules</code>, <code>site-packages</code>.',
           '<b>우리 코드</b>와 실행 방법을 적은 <b>설정</b>(시작 명령, 환경 변수, 작업 디렉터리).',
         ] },
-        { title: '더 생각해 볼 것', body: ['네 덩어리 중 자주 바뀌는 것은 맨 마지막 하나뿐입니다. 그렇다면 자주 바뀌지 않는 것을 따로 떼어 한 번만 옮기면 되지 않을까요? 이것이 레이어의 발상입니다.'] },
+        { title: '더 생각해 볼 것', body: ['네 덩어리 중 자주 바뀌는 것은 맨 마지막 하나뿐입니다. 그렇다면 자주 바뀌지 않는 것을 따로 떼어 한 번만 옮기면 되지 않을까요? 이것이 레이어의 발상입니다. Git이 파일을 내용의 해시로 저장하고 바뀐 것만 주고받는 것과 닮았는데, 실제로 레이어도 내용의 해시로 이름이 붙습니다(레이어 공유 단계).'] },
       ],
     },
     {
@@ -142,7 +142,7 @@ export default {
       more: [
         { title: '동작 원리', body: [
           '빌드는 명령마다 "직전 상태의 파일시스템에서 명령을 실행하고, 그 결과 <b>달라진 파일만</b> 묶어 새 레이어로 저장"하는 과정의 반복입니다. 이미지는 그 레이어 목록과, 시작 명령 · 환경 변수 같은 <b>설정(config)</b>을 적은 작은 JSON으로 이루어져요.',
-          '<code>ENV</code>, <code>WORKDIR</code>, <code>CMD</code>, <code>EXPOSE</code>처럼 파일을 바꾸지 않는 명령은 설정만 고칩니다. 그래서 크기 0 B의 기록으로 남습니다.',
+          '<code>ENV</code>, <code>WORKDIR</code>, <code>CMD</code>, <code>EXPOSE</code>처럼 파일을 바꾸지 않는 명령은 설정만 고칩니다. 그래서 크기 0 B의 기록으로 남습니다. 레이어가 지나치게 많으면 겹쳐 보기에 부담이 생기고 저장소 드라이버마다 한도도 있지만, 보통의 Dockerfile에서는 걱정할 수준이 아닙니다. 줄 수를 억지로 줄이기보다 읽기 쉽게 쓰는 편이 낫습니다.',
         ] },
         { title: '레이어를 만드는 습관', list: [
           '같은 <code>RUN</code> 안에서 내려받고 · 풀고 · 지우면 중간 파일이 레이어에 남지 않습니다. 줄을 나누면 다운로드한 압축 파일이 아래 레이어에 그대로 남아요.',
@@ -175,6 +175,7 @@ export default {
           '<code>dive</code> 같은 오픈소스 도구를 쓰면 레이어마다 어떤 파일이 추가 · 삭제됐는지 트리로 보고, 낭비된 공간을 찾아 줍니다.',
           '<code>--no-trunc</code>를 붙이면 잘린 명령 전체를 볼 수 있습니다.',
         ] },
+        { title: '흔한 실수', list: ['<code>docker images</code>의 SIZE는 압축을 푼 크기, 레지스트리 화면의 크기는 압축된 크기라 숫자가 다릅니다. 둘을 섞어 비교하면 "줄었다 · 늘었다"를 잘못 판단합니다.', '크기 0B인 줄을 지워 이미지를 줄이려는 시도는 효과가 없습니다. 크기는 파일을 바꾼 줄에서만 생깁니다.', '<code>&lt;missing&gt;</code> 줄들(베이스)이 대부분이라면, 우리 Dockerfile보다 베이스를 바꾸는 것이 훨씬 효과가 큽니다(다음 레슨).'] },
       ],
     },
     {
@@ -199,7 +200,7 @@ export default {
         ] },
         { title: '직접 해보기', body: ['overlay2 스토리지 드라이버를 쓰는 Linux 호스트라면, 컨테이너가 어떤 디렉터리를 겹쳐 쓰는지 볼 수 있습니다(Docker Desktop의 최신 설정처럼 containerd 이미지 저장소를 쓰면 출력이 다를 수 있어요).'],
           code: { title: 'terminal', lang: 'sh', text: '$ docker inspect web \\\n    -f \'{{json .GraphDriver.Data}}\' | jq\n{\n  "LowerDir": "/var/lib/docker/overlay2/…/diff:…",\n  "UpperDir": "/var/lib/docker/overlay2/9a1…/diff",\n  "MergedDir": "/var/lib/docker/overlay2/9a1…/merged"\n}' } },
-        { title: '가림막의 모양', body: ['레이어 tar 파일 안에서 가림막은 <code>.wh.</code>로 시작하는 빈 파일입니다. <code>/app/.env</code>를 지웠다면 <code>app/.wh..env</code>가 들어가요. 디렉터리 전체를 비울 때는 <code>.wh..wh..opq</code> 표시를 씁니다.'] },
+        { title: '가림막의 모양', body: ['레이어 tar 파일 안에서 가림막은 <code>.wh.</code>로 시작하는 빈 파일입니다. <code>/app/.env</code>를 지웠다면 <code>app/.wh..env</code>가 들어가요. 디렉터리 전체를 비울 때는 <code>.wh..wh..opq</code> 표시를 씁니다. 그래서 레이어 검사 도구에서 "삭제"는 파일이 사라진 것이 아니라 가림막 파일이 하나 더 생긴 것으로 나타납니다.'] },
       ],
     },
     {
@@ -221,10 +222,10 @@ export default {
       more: [
         { title: '어떻게 꺼내지나', code: { title: 'terminal', lang: 'sh', text: '$ docker save shop-api:1.4 -o shop.tar\n$ mkdir x && tar -xf shop.tar -C x\n$ for l in x/blobs/sha256/*; do\n    tar -tzf "$l" 2>/dev/null \\\n      | grep -q "app/.env" && echo "$l"\n  done\nx/blobs/sha256/5e88…' } },
         { title: '출력 읽기', body: [
-          '이미지를 받을 수 있는 사람은 누구나 모든 레이어를 받습니다. <code>docker save</code>는 그 레이어들을 tar로 꺼낼 뿐이고, 어느 레이어에 <code>.env</code>가 있는지 찾는 데 1분이면 충분해요. 프라이빗 레지스트리도 "받을 수 있는 사람"의 범위를 줄일 뿐입니다.',
+          '이미지를 받을 수 있는 사람은 누구나 모든 레이어를 받습니다. <code>docker save</code>는 그 레이어들을 tar로 꺼낼 뿐이고, 어느 레이어에 <code>.env</code>가 있는지 찾는 데 1분이면 충분해요. 프라이빗 레지스트리도 "받을 수 있는 사람"의 범위를 줄일 뿐입니다. 이미지를 넘겨받은 협력사, 퇴사자의 PC, 백업 사본까지 모두 같은 위험을 집니다.',
         ] },
         { title: '고친 Dockerfile', code: { title: 'Dockerfile', lang: 'dockerfile', text: '# syntax=docker/dockerfile:1\nFROM node:20-slim\nWORKDIR /app\nCOPY package*.json ./\n# 비밀은 이 RUN 동안만 파일로 보이고 레이어에 남지 않는다\nRUN --mount=type=secret,id=npmrc,target=/root/.npmrc \\\n    npm ci\n\n# 빌드: docker build --secret id=npmrc,src=$HOME/.npmrc .' } },
-        { title: '흔한 실수', list: ['<code>ARG TOKEN</code>이나 <code>ENV TOKEN</code>으로 넘기는 것도 위험합니다. 값이 이미지 설정이나 history에 기록될 수 있어요.', '스캐너(Trivy 등)의 시크릿 검사로 레이어 속 키를 찾는 단계를 CI에 넣어 두면, 실수를 레지스트리에 올리기 전에 잡습니다(9장).'] },
+        { title: '흔한 실수', list: ['<code>ARG TOKEN</code>이나 <code>ENV TOKEN</code>으로 넘기는 것도 위험합니다. 값이 이미지 설정이나 history에 기록될 수 있어요.', '스캐너(Trivy 등)의 시크릿 검사로 레이어 속 키를 찾는 단계를 CI에 넣어 두면, 실수를 레지스트리에 올리기 전에 잡습니다(9장).', '<code>.git</code> 폴더도 같은 문제를 만듭니다. 지운 줄 알았던 비밀이 Git 기록에 남아 있고, <code>.git</code>째 이미지에 들어가면 기록까지 함께 퍼집니다.', 'CI 로그에 빌드 출력이 남는다면, <code>--build-arg</code>로 넘긴 값이 로그에 찍히지 않는지도 확인합니다. 스캐너가 찾아 줘도 이미 퍼진 뒤라면 늦으니, 비밀은 넣지 않는 것이 유일한 예방입니다.'] },
       ],
     },
     {
@@ -252,7 +253,7 @@ export default {
         ] },
         { title: '실무 팁', list: [
           '공유는 레이어 내용이 <b>바이트 단위로 같을 때만</b> 일어납니다. <code>node:20</code>과 <code>node:20-slim</code>은 이름이 비슷해도 레이어를 거의 공유하지 않아요.',
-          '베이스 태그가 움직이면(예: 새 패치 버전) 어제 빌드한 이미지와 오늘 빌드한 이미지의 베이스가 갈립니다. 팀 공통 베이스를 정하고, 정기적으로 함께 올리는 편이 공유와 보안 패치 모두에 좋습니다.',
+          '베이스 태그가 움직이면(예: 새 패치 버전) 어제 빌드한 이미지와 오늘 빌드한 이미지의 베이스가 갈립니다. 팀 공통 베이스를 정하고, 정기적으로 함께 올리는 편이 공유와 보안 패치 모두에 좋습니다.', '레지스트리 쪽에서도 공유가 일어납니다. 같은 레지스트리의 다른 저장소에 이미 있는 레이어는 다시 올리지 않고 연결만 하기도 해요(push 출력의 <code>Mounted from</code>).', '노드에 자주 쓰는 베이스 이미지를 미리 받아 두면 새 서비스를 배포할 때 받을 양이 줄어듭니다. 반대로 베이스를 바꾸는 시점에는 공유가 깨져 한 번은 전부 받아야 합니다.',
         ] },
       ],
     },
@@ -284,6 +285,7 @@ export default {
           '한 줄이라도 캐시가 깨지면 그 아래 줄은 모두 다시 실행됩니다.',
         ] },
         { title: '실무 팁', body: ['CI 러너는 매번 새 VM이라 로컬 캐시가 없는 경우가 많습니다. BuildKit의 <code>--cache-from</code> · <code>--cache-to</code>로 캐시를 레지스트리에 저장해 두면 새 러너에서도 아래 층을 재사용합니다(9장 이미지 파이프라인).'] },
+        { title: '흔한 실수', list: ['캐시가 너무 잘 돼서 패키지가 몇 달째 그대로인 경우가 있습니다. 정기 빌드에서는 <code>--pull</code>과 <code>--no-cache</code>로 베이스와 패키지를 새로 받습니다.', '빌드 시각이나 랜덤 값을 파일에 쓰는 명령이 앞쪽에 있으면, 그 아래 레이어는 매번 새로 만들어지고 digest도 매번 달라집니다. 이런 명령은 맨 뒤로 보냅니다.'] },
       ],
     },
     {
@@ -341,8 +343,8 @@ export default {
         { title: '정리 명령', code: { title: 'terminal', lang: 'sh', text: '# 이름 잃은(<none>) 이미지만\n$ docker image prune -f\n# 컨테이너가 쓰지 않는 이미지 중 3일 지난 것\n$ docker image prune -a -f --filter "until=72h"\n# 빌드 캐시\n$ docker builder prune -f --filter "until=72h"' } },
         { title: '흔한 실수', list: [
           '<code>docker system prune --volumes</code>를 운영 서버에서 습관처럼 치면, 멈춰 있는 컨테이너의 볼륨 데이터까지 사라질 수 있습니다.',
-          '<code>-a</code>로 전부 지우면 다음 빌드가 캐시 없이 처음부터 돌아 느려집니다. 기간 필터로 최근 것은 남기세요.',
-          'Docker 데이터 디렉터리(<code>/var/lib/docker</code>)를 OS와 같은 작은 디스크에 두지 말고, 별도 디스크와 사용률 알림을 둡니다.',
+          '<code>-a</code>로 전부 지우면 다음 빌드가 캐시 없이 처음부터 돌아 느려집니다. 기간 필터로 최근 것은 남기세요.', 'CI 서버는 디스크 사용률 기준으로 알림을 걸고, 정리 작업은 빌드가 적은 시간에 정기적으로 돌립니다.', '매번 새 VM에서 빌드하는 관리형 CI 러너를 쓰면 디스크 문제 자체가 사라지는 대신, 캐시를 레지스트리에 보관해야 빌드가 빨라집니다.',
+          'Docker 데이터 디렉터리(<code>/var/lib/docker</code>)를 OS와 같은 작은 디스크에 두지 말고, 별도 디스크와 사용률 알림을 둡니다.', '운영 서버에도 배포가 쌓이면 옛 버전 이미지가 남습니다. 롤백에 필요한 최근 몇 개만 남기고 정리합니다. Docker Desktop을 쓰는 개발 PC도 같은 이유로 수십 GB를 차지하곤 합니다.', '<code>RECLAIMABLE</code>은 지금 지워도 되는 양의 추정치입니다. 실행 중인 컨테이너가 쓰는 이미지는 prune으로 지워지지 않습니다.',
         ] },
       ],
     },
@@ -366,7 +368,7 @@ export default {
           '이미지의 digest는 레이어 목록과 설정을 적은 작은 JSON 문서인 <b>매니페스트</b>의 해시입니다. 레이어 하나라도 바뀌면 매니페스트가 바뀌고 digest도 바뀌어요. 그래서 digest로 받으면 "그때 그 이미지"가 보장됩니다.',
           '<code>node:20</code>처럼 여러 CPU용 이미지를 묶은 태그는 <b>이미지 인덱스</b>를 가리킵니다. 인덱스의 digest와 amd64용 매니페스트의 digest가 다르니, 비교할 때는 같은 종류끼리 봐야 합니다.',
         ] },
-        { title: '실무 팁', list: ['<code>1.4</code>, <code>1.4.2</code>, <code>latest</code>처럼 여러 태그가 같은 digest를 가리키는 것은 정상입니다.', '공식 이미지의 <code>node:20</code> 태그는 패치 버전이 나올 때마다 새 이미지로 옮겨 갑니다. 재현이 중요한 곳에서는 <code>FROM node:20@sha256:…</code>처럼 digest로 고정하고, 갱신은 도구(Dependabot · Renovate 등)에 맡깁니다.'] },
+        { title: '실무 팁', list: ['<code>1.4</code>, <code>1.4.2</code>, <code>latest</code>처럼 여러 태그가 같은 digest를 가리키는 것은 정상입니다.', '공식 이미지의 <code>node:20</code> 태그는 패치 버전이 나올 때마다 새 이미지로 옮겨 갑니다. 재현이 중요한 곳에서는 <code>FROM node:20@sha256:…</code>처럼 digest로 고정하고, 갱신은 도구(Dependabot · Renovate 등)에 맡깁니다.', '쿠버네티스 매니페스트나 compose 파일에도 digest를 적을 수 있습니다. 배포 도구가 태그를 digest로 바꿔 기록해 두면 "어제 무엇이 돌았나"에 정확히 답할 수 있어요.'] },
       ],
     },
     {
@@ -392,10 +394,11 @@ export default {
           '<code>.Image</code>는 로컬 이미지 ID(설정 JSON의 해시), <code>RepoDigests</code>는 레지스트리의 digest입니다. 종류는 달라도 두 서버에서 <b>같은 종류의 값을 비교</b>하면 같은 이미지인지 바로 드러나요. 장애 대응의 첫 질문은 "모든 서버가 같은 digest인가?"입니다.',
         ] },
         { title: '재발 방지', list: [
-          '배포 설정에는 유일한 태그(버전 · 커밋 SHA)를 적고, 한번 올린 태그는 다시 쓰지 않습니다(다음 다음 레슨의 태그 전략).',
+          '배포 설정에는 유일한 태그(버전 · 커밋 SHA)를 적고, 한번 올린 태그는 다시 쓰지 않습니다(Compose와 레지스트리 레슨의 태그 전략).',
           '레지스트리의 <b>태그 불변</b> 설정을 켜면 같은 태그로 덮어쓰는 push가 거부됩니다.',
-          '<code>latest</code>는 "로컬에서 대충 최신을 받아 볼 때" 정도로만 씁니다.',
+          '<code>latest</code>는 "로컬에서 대충 최신을 받아 볼 때" 정도로만 씁니다.', '모든 서버가 같은 digest를 돌리는지 주기적으로 확인하는 점검이나 대시보드를 두면, 이런 차이를 장애 전에 발견합니다.',
         ] },
+        { title: '흔한 실수', list: ['"롤백했다"고 생각했는데 같은 latest를 다시 pull해 새 이미지가 그대로 뜨는 경우가 있습니다. 롤백 대상은 반드시 이전 이미지의 고유 태그나 digest로 지정합니다.', '자동 업데이트 도구나 재시작 스크립트가 몰래 새 latest를 받아 버리는 일도 있습니다. 운영에서는 "언제 무엇을 받을지"를 배포 도구만 결정하게 합니다.'] },
       ],
     },
     {
@@ -421,7 +424,7 @@ export default {
         ] },
         { title: '흔한 실수', list: [
           'copy-on-write는 <b>파일 전체</b>를 복사합니다. 이미지 안의 큰 파일(예: DB 데이터 파일)을 조금씩 고치는 작업은 첫 쓰기마다 통째 복사가 일어나 느립니다. 쓰기가 많은 데이터는 볼륨에 둡니다.',
-          '<code>docker commit</code>으로 쓰기 레이어를 이미지로 굳히는 것은 피하세요. 무엇이 들어갔는지 아무도 모르는 이미지가 됩니다. 바꿀 것은 Dockerfile에 적고 다시 빌드합니다.',
+          '<code>docker commit</code>으로 쓰기 레이어를 이미지로 굳히는 것은 피하세요. 무엇이 들어갔는지 아무도 모르는 이미지가 됩니다. 바꿀 것은 Dockerfile에 적고 다시 빌드합니다.', '로그를 컨테이너 안 파일로 쓰면 쓰기 레이어가 계속 커져 호스트 디스크를 채웁니다. 표준 출력으로 내보내고, Docker 로그 드라이버에 크기 · 회전 설정(<code>max-size</code>)을 둡니다.', '쓰기 레이어는 컨테이너를 멈춰도(stop) 남아 있다가, 지울 때(rm) 함께 사라집니다(다음 단계).',
         ] },
       ],
     },
@@ -450,7 +453,7 @@ export default {
           ['새 이미지로 교체', '새 컨테이너 = 빈 쓰기 레이어', 'bad'],
         ] },
         { title: '미리 알아채는 법', body: [
-          '배포 전에 <code>docker diff</code>로 쓰기 레이어에 무엇이 쌓이는지 보면, "로그 · 업로드 · 캐시가 컨테이너 안에 쌓이고 있다"는 신호를 미리 잡을 수 있습니다. <code>--read-only</code>로 띄워 보는 것도 좋은 시험이에요. 어디에 쓰려 하는지 오류로 바로 드러납니다.',
+          '배포 전에 <code>docker diff</code>로 쓰기 레이어에 무엇이 쌓이는지 보면, "로그 · 업로드 · 캐시가 컨테이너 안에 쌓이고 있다"는 신호를 미리 잡을 수 있습니다. <code>--read-only</code>로 띄워 보는 것도 좋은 시험이에요. 어디에 쓰려 하는지 오류로 바로 드러납니다. 쿠버네티스에서는 Pod가 다른 노드로 옮겨질 때마다 새 컨테이너가 되므로, 이 원칙이 더 엄격하게 적용됩니다.',
         ] },
         { title: '어디에 둘까', list: [
           '<b>사용자 업로드</b>: 클라우드라면 오브젝트 스토리지(S3 · Blob Storage · Cloud Storage · NCP Object Storage)가 가장 흔한 답입니다. 서버가 여러 대여도 함께 볼 수 있어요.',

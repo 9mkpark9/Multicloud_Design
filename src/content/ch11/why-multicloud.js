@@ -236,7 +236,7 @@ export default {
       callout: { type: 'warn', text: '운영 세트는 사람의 일도 늘립니다. 온콜, 교육, 보안 점검, 감사 대응이 <b>클라우드 수만큼</b> 곱해집니다.' },
       hide: ['exitplan'],
       tags: [
-        { on: 'aws', text: 'IAM · VPC · 청구서', tone: 'aws' },
+        { on: 'aws', text: 'IAM · VPC · 청구서', tone: 'aws', pos: 'right' },
         { on: 'azure', text: 'Entra ID · VNet', tone: 'azure', pos: 'bottom' },
         { on: 'ncp', text: 'Sub Account · VPC', tone: 'ncp', pos: 'bottom' },
         { on: 'gcp', text: 'IAM · VPC · 청구서', tone: 'gcp', pos: 'bottom' },
@@ -388,6 +388,7 @@ export default {
         { on: 'ncp', text: '공공 데이터', tone: 'ncp', pos: 'left' },
         { on: 'gcp', text: '분석', tone: 'gcp', pos: 'bottom' },
       ],
+      panel: { title: '패턴과 비용', icon: 'layers', rows: [['워크로드별 분산', '일마다 맞는 곳에', 'ok'], ['액티브-패시브 DR', '평소 A, 재해 때 B', 'info'], ['버스팅', '넘칠 때만 빌리기', 'warn'], ['액티브-액티브', '둘 다 실서비스', 'bad']] },
       flows: [{ path: ['aws', 'gcp'], kind: 'data', n: 2 }, { path: ['aws', 'azure'], kind: 'sync', n: 2, delay: 0.5 }],
       metrics: { ops: ['4벌 · 역할 분명', 'warn'] },
       more: [
@@ -425,7 +426,6 @@ export default {
         { on: 'azure', text: '쓰기 충돌 위험', tone: 'bad', icon: 'warn', pos: 'bottom' },
         { on: 'gcp', text: '버스팅: 데이터가 멀다', tone: 'warn', pos: 'bottom' },
       ],
-      panel: { title: '패턴과 비용', icon: 'layers', rows: [['워크로드별 분산', '일마다 맞는 곳에', 'ok'], ['액티브-패시브 DR', '평소 A, 재해 때 B', 'info'], ['버스팅', '넘칠 때만 빌리기', 'warn'], ['액티브-액티브', '둘 다 실서비스', 'bad']] },
       flows: [
         { path: ['users', 'aws'], kind: 'req', n: 2 }, { path: ['users', 'azure'], kind: 'req', n: 2, delay: 0.3 },
         { path: ['aws', 'azure'], kind: 'sync', delay: 1.2 }, { path: ['azure', 'aws'], kind: 'sync', delay: 1.6 },

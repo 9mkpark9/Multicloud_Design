@@ -27,7 +27,7 @@ export default {
       prod: { at: [6.2, 2.6], label: 'prod 환경', sub: '서버 · DB', icon: 'layers', color: 'purple' },
       night: { kind: 'client', at: [8.2, 1.6], label: '당직자' },
       reviewer: { kind: 'client', at: [2.4, -0.4], label: '리뷰어' },
-      engine: { at: [4.8, 4.8], label: 'IaC 도구', sub: '원하는 vs 실제', icon: 'scale', color: 'olive' },
+      engine: { at: [5.4, 3.8], label: 'IaC 도구', sub: '원하는 vs 실제', icon: 'scale', color: 'olive' },
       readme: { kind: 'tile', at: [2.4, 5.0], label: 'README 수동 단계', icon: 'file-text', color: 'gray' },
 
       tfx: { at: [-1.5, -1.5], label: 'Terraform', sub: 'OpenTofu', icon: 'blocks', color: 'olive' },
@@ -345,7 +345,7 @@ fi
       hide: ['e_tf_dev'],
       set: { dev: { state: 'hot', badge: '실제 1대', tone: 'warn' } },
       tags: [
-        { on: 'tf', text: '원하는 상태: 2대', tone: 'accent', pos: 'right' },
+        { on: 'tf', text: '원하는 상태: 2대', tone: 'accent' },
         { on: 'engine', text: '차이: +1대', tone: 'ok', pos: 'right' },
       ],
       flows: [
@@ -453,7 +453,7 @@ Plan: 1 to add, 0 to change, 0 to destroy.` } },
       ],
       callout: { type: 'tip', text: '처음부터 전부 막으면 반발이 큽니다. <b>prod부터</b> 읽기 전용으로 바꾸고, dev는 실험용으로 열어 두는 것이 흔한 출발점이에요.' },
       show: ['night'],
-      set: { e_night: { tone: 'mute', style: 'dashed', label: '긴급 시만' } },
+      set: { e_night: { tone: 'mute', style: 'dashed' } },
       tags: [{ on: 'night', text: '긴급 역할 · 사후 PR', tone: 'warn', icon: 'siren' }],
       flows: [
         { path: ['eng', 'git'], kind: 'build' },
@@ -638,7 +638,7 @@ build {
       ],
       hide: ['tfx', 'vm', 'vm2', 'img'],
       show: ['eng', 'git', 'dev', 'prod'],
-      set: { vm: { state: null, badge: null }, e_night: { tone: 'bad', style: 'solid', label: null } },
+      set: { vm: { state: null, badge: null } },
       focus: ['git'],
       flows: [{ path: ['eng', 'git'], kind: 'build' }, { path: ['git', 'dev'], kind: 'ctrl', n: 2, delay: 1 }, { path: ['git', 'prod'], kind: 'ctrl', n: 2, delay: 1.2 }],
       tags: [{ on: 'git', text: '리뷰 → 병합 → 적용', tone: 'ok', icon: 'git-merge' }],
