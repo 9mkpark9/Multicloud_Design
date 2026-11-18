@@ -1,33 +1,38 @@
-// Renders a lesson's isometric scene into an SVG and moves it from step to step.
+// Renders a lesson's isometric scene into an SVG and animates it from step to step.
+//
+// A step change is choreographed rather than swapped:
+//   0.00s  what leaves fades and sinks; the camera starts gliding to the new frame
+//   0.00s  nodes that moved slide to their new place (arrows follow them)
+//   0.05s  new zones fade in
+//   0.15s  new nodes drop in one after another
+//   +0.3s  arrows draw themselves from one end to the other once both ends are there
+//   +0.4s  the step's tags pop up next to their node
+//   then   packets start flowing
+// Nodes whose look changed (colour, state, label, badge) cross-fade from old to new.
 import { proj, drawNode, drawZone, rayToPoly, pill, roundPoly, tagCentre, frameOf, AX, AY, esc } from './iso.js';
 import { foldSteps } from './fold.js';
 
 const f = (n) => (Math.round(n * 10) / 10).toString();
+const NS = 'http://www.w3.org/2000/svg';
 const PROVIDER = { aws: 'orange', azure: 'blue', gcp: 'red', ncp: 'green' };
 export const colorOf = (c) => PROVIDER[c] || c || 'sand';
-
-const pointOf = (scene, ref) => {
-  if (Array.isArray(ref)) return proj(ref[0], ref[1]);
-  const n = scene.nodes[ref];
-  return n ? proj(n.at[0], n.at[1]) : null;
-};
+const ease = (k) => 1 - Math.pow(1 - k, 3);
+const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const restart = (node, cls) => { node.classList.remove(cls); node.getBoundingClientRect(); node.classList.add(cls); };
 
 export function createScene(host, lesson, { still = false } = {}) {
   const def = { nodes: {}, zones: {}, edges: {}, ...(lesson.scene || {}) };
   const ids = {
-    nodes: Object.keys(def.nodes).sort((a, b) => depth(def.nodes[a]) - depth(def.nodes[b])),
+    nodes: Object.keys(def.nodes),
     zones: Object.keys(def.zones).sort((a, b) => area(def.zones[b]) - area(def.zones[a])),
     edges: Object.keys(def.edges),
   };
-  function depth(n) { return n.at[0] + n.at[1] + (n.z || 0) * 0.001; }
   function area(z) { return z.size[0] * z.size[1]; }
 
-  // ---- camera: one fixed frame that holds everything the lesson ever shows ----
   let vb = frameOf(lesson, new Set(), null);
-
   const uid = 'g' + Math.random().toString(36).slice(2, 7);
   host.innerHTML = `
-<svg class="scene" viewBox="${vb.map(f).join(' ')}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(lesson.title || '')}">
+<svg class="scene ${still ? 'instant' : ''}" viewBox="${vb.map(f).join(' ')}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(lesson.title || '')}">
   <defs>
     <pattern id="${uid}-grid" width="${AX * 2}" height="${AY * 2}" patternUnits="userSpaceOnUse">
       <path class="grid-line" d="M0 ${AY}L${AX} 0L${AX * 2} ${AY}L${AX} ${AY * 2}Z"/>
@@ -41,42 +46,66 @@ export function createScene(host, lesson, { still = false } = {}) {
   const layer = (c) => svg.querySelector('.L-' + c);
   const el = { nodes: {}, zones: {}, edges: {} };
   const sig = {};
-  const geo = {}; // per node: silhouette, top, bottom after the last draw
+  const geo = {}; // node id → drawNode() result for its current look
+  const gpos = {}; // node id → ground point on screen, where it is drawn right now
+  const tpos = {}; // node id → ground point it is heading to
+  const nodeZ = {}; // node id → height
+  const shown = new Set(); // what is visible after the last apply()
 
-  for (const id of ids.zones) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'zone off');
-    g.dataset.id = id;
-    layer('zones').appendChild(g);
-    el.zones[id] = g;
-  }
-  for (const id of ids.edges) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'edge off');
-    g.dataset.id = id;
-    layer('edges').appendChild(g);
-    el.edges[id] = g;
-  }
+  const mk = (tag, cls, parent) => { const g = document.createElementNS(NS, tag); if (cls) g.setAttribute('class', cls); parent.appendChild(g); return g; };
+  for (const id of ids.zones) el.zones[id] = mk('g', 'zone off', layer('zones'));
+  for (const id of ids.edges) el.edges[id] = mk('g', 'edge off', layer('edges'));
   for (const id of ids.nodes) {
     const n = def.nodes[id];
-    const [x, y] = proj(n.at[0], n.at[1], n.z || 0);
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'node off');
-    g.setAttribute('transform', `translate(${f(x)} ${f(y)})`);
+    const g = mk('g', 'node off', layer('nodes'));
     g.dataset.id = id;
     g.innerHTML = '<g class="node-in"></g>';
-    layer('nodes').appendChild(g);
+    // once landed, drop the entrance class: re-ordering nodes in the DOM would otherwise replay it
+    g.addEventListener('animationend', (e) => { if (e.animationName === 'node-drop' || e.animationName === 'fade-in') g.classList.remove('enter'); });
     el.nodes[id] = g;
+    gpos[id] = tpos[id] = proj(n.at[0], n.at[1]);
+    nodeZ[id] = n.z || 0;
+    placeNode(id);
   }
+  sortNodes();
 
-  function paintNode(id, n) {
-    const s = JSON.stringify(n);
+  function placeNode(id) {
+    const [x, y] = gpos[id];
+    el.nodes[id].setAttribute('transform', `translate(${f(x)} ${f(y - nodeZ[id])})`);
+  }
+  // nearer nodes are drawn later; positions can change, so the order is kept up to date
+  function sortNodes() {
+    const order = [...ids.nodes].sort((a, b) => depthOf(a) - depthOf(b));
+    const L = layer('nodes');
+    let i = 0;
+    for (const id of order) {
+      if (L.children[i] !== el.nodes[id]) L.insertBefore(el.nodes[id], L.children[i] || null);
+      i++;
+    }
+  }
+  function depthOf(id) { const [x, y] = tpos[id]; return y + nodeZ[id] * 0.001 + x * 1e-6; }
+
+  // ---- nodes: draw, or cross-fade to a new look ----
+  function paintNode(id, n, animate) {
+    const s = JSON.stringify({ ...n, at: 0 });
     if (sig[id] === s) return;
+    const first = sig[id] === undefined;
     sig[id] = s;
     const d = drawNode(n);
     geo[id] = d;
-    const inner = el.nodes[id].firstElementChild;
-    inner.setAttribute('class', `node-in c-${colorOf(n.color)} k-${n.kind || 'box'} ${n.state ? 'is-' + n.state : ''}`);
+    const g = el.nodes[id];
+    const inner = g.querySelector('.node-in');
+    if (animate && !first && !g.classList.contains('off')) {
+      g.classList.remove('enter');
+      const ghost = inner.cloneNode(true);
+      ghost.setAttribute('class', inner.getAttribute('class').replace(/\b(swap|node-in)\b/g, '') + ' ghost');
+      g.insertBefore(ghost, inner);
+      const drop = () => ghost.remove();
+      ghost.addEventListener('animationend', drop, { once: true });
+      setTimeout(drop, 900);
+      restart(inner, 'swap');
+    }
+    inner.setAttribute('class', `node-in c-${colorOf(n.color)} k-${n.kind || 'box'} ${n.state ? 'is-' + n.state : ''} ${inner.classList.contains('swap') ? 'swap' : ''}`);
     const rx = d.right + 12;
     inner.innerHTML = `<ellipse class="n-ring" cx="0" cy="0" rx="${f(rx)}" ry="${f(rx * 0.58)}"/>` + d.svg;
   }
@@ -85,19 +114,21 @@ export function createScene(host, lesson, { still = false } = {}) {
     const s = JSON.stringify(z);
     if (sig['z:' + id] === s) return;
     sig['z:' + id] = s;
-    el.zones[id].innerHTML = `<g class="c-${colorOf(z.color || 'gray')}">${drawZone(z).svg}</g>`;
+    el.zones[id].innerHTML = `<g class="z-in c-${colorOf(z.color || 'gray')}">${drawZone(z).svg}</g>`;
   }
 
-  function edgePoints(e) {
-    const pts = [e.from, ...(e.via || []), e.to].map((r) => pointOf(def, r));
+  // ---- edges: built once per look, their path follows the nodes ----
+  const pointOf = (ref, map = gpos) => (Array.isArray(ref) ? proj(ref[0], ref[1]) : map[ref] || null);
+
+  function edgePoints(e, map = gpos) {
+    const pts = [e.from, ...(e.via || []), e.to].map((r) => pointOf(r, map));
     if (pts.some((p) => !p)) return null;
     // pull both ends back to the outline of the shapes they touch
     const trim = (ref, p, toward, extra) => {
       if (Array.isArray(ref) || !geo[ref]) return p;
       const dx = toward[0] - p[0], dy = toward[1] - p[1];
       const len = Math.hypot(dx, dy) || 1;
-      const n = def.nodes[ref];
-      const zoff = n.z || 0;
+      const zoff = nodeZ[ref];
       const t = rayToPoly(geo[ref].sil.map(([x, y]) => [x, y - zoff]), dx / len, dy / len) + extra;
       return [p[0] + (dx / len) * Math.min(t, len * 0.45), p[1] + (dy / len) * Math.min(t, len * 0.45)];
     };
@@ -107,21 +138,28 @@ export function createScene(host, lesson, { still = false } = {}) {
   }
 
   function paintEdge(id, e) {
-    const pts = edgePoints(e);
-    const s = JSON.stringify([e, pts]);
-    if (sig['e:' + id] === s) return;
-    sig['e:' + id] = s;
-    if (!pts) { el.edges[id].innerHTML = ''; return; }
-    const tone = e.tone || '';
-    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${f(p[0])} ${f(p[1])}`).join('');
-    const arrow = e.arrow === false ? '' : `marker-end="url(#${uid}-arr${tone})"`;
-    const arrow2 = e.bi ? `marker-start="url(#${uid}-arr${tone})"` : '';
-    let html = `<path class="e-line ${e.style || ''} ${tone}" d="${d}" ${arrow} ${arrow2}/>`;
-    if (e.label) {
-      const mid = pts.length % 2 ? pts[(pts.length - 1) / 2] : [(pts[pts.length / 2 - 1][0] + pts[pts.length / 2][0]) / 2, (pts[pts.length / 2 - 1][1] + pts[pts.length / 2][1]) / 2];
-      html += pill(e.label, { cx: mid[0], cy: mid[1], fs: 12.5, shadow: false, cls: 'e-label', tone }).svg;
+    const g = el.edges[id];
+    const look = JSON.stringify({ ...e, from: 0, to: 0, via: 0 });
+    if (sig['e:' + id] !== look) {
+      sig['e:' + id] = look;
+      const tone = e.tone || '';
+      const arrow = e.arrow === false ? '' : `marker-end="url(#${uid}-arr${tone})"`;
+      const arrow2 = e.bi ? `marker-start="url(#${uid}-arr${tone})"` : '';
+      g.innerHTML = `<mask id="${uid}-m-${id}" maskUnits="userSpaceOnUse" x="-6000" y="-6000" width="12000" height="12000"><path class="m-draw" pathLength="1"/></mask>
+<g mask="url(#${uid}-m-${id})"><path class="e-line ${e.style || ''} ${tone}" ${arrow} ${arrow2}/>${e.label ? `<g class="e-lab">${pill(e.label, { fs: 12.5, shadow: false, cls: 'e-label', tone }).svg}</g>` : ''}</g>`;
+      g.dataset.path = '';
     }
-    el.edges[id].innerHTML = html;
+    const pts = edgePoints(e);
+    const d = pts ? pts.map((p, i) => `${i ? 'L' : 'M'}${f(p[0])} ${f(p[1])}`).join('') : '';
+    if (g.dataset.path === d) return;
+    g.dataset.path = d;
+    g.querySelector('.e-line').setAttribute('d', d);
+    g.querySelector('.m-draw').setAttribute('d', d);
+    const lab = g.querySelector('.e-lab');
+    if (lab && pts) {
+      const mid = pts.length % 2 ? pts[(pts.length - 1) / 2] : [(pts[pts.length / 2 - 1][0] + pts[pts.length / 2][0]) / 2, (pts[pts.length / 2 - 1][1] + pts[pts.length / 2][1]) / 2];
+      lab.setAttribute('transform', `translate(${f(mid[0])} ${f(mid[1])})`);
+    }
   }
 
   // ---- packets ----
@@ -136,7 +174,7 @@ export function createScene(host, lesson, { still = false } = {}) {
     packets = [];
     let end = 0;
     for (const fl of step.flows || []) {
-      const pts = (fl.path || []).map((r) => pointOf(def, r)).filter(Boolean);
+      const pts = (fl.path || []).map((r) => pointOf(r, tpos)).filter(Boolean);
       if (pts.length < 2) continue;
       const seg = [];
       let total = 0;
@@ -145,11 +183,9 @@ export function createScene(host, lesson, { still = false } = {}) {
       const n = fl.n || 1;
       const gap = fl.gap ?? 0.38;
       for (let i = 0; i < n; i++) {
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('class', `pkt k-${fl.kind || 'req'}`);
+        const g = mk('g', `pkt k-${fl.kind || 'req'}`, layer('flows'));
         g.innerHTML = fl.kind === 'build' ? '<rect x="-5.5" y="-5.5" width="11" height="11" rx="2.5"/>' : fl.kind === 'bad' ? '<circle r="6.2"/><path d="M-2.6 -2.6l5.2 5.2m0 -5.2l-5.2 5.2"/>' : '<circle r="5.6"/>';
         g.style.opacity = 0;
-        layer('flows').appendChild(g);
         const start = (fl.delay || 0) + i * gap;
         packets.push({ g, pts, seg, total, start, dur, frac: (i + 1) / (n + 1) });
         end = Math.max(end, start + dur);
@@ -171,6 +207,7 @@ export function createScene(host, lesson, { still = false } = {}) {
   function frame(now) {
     raf = requestAnimationFrame(frame);
     if (pausedAt != null || !packets.length) return;
+    if (now < t0) { for (const p of packets) p.g.style.opacity = 0; return; }
     const t = ((now - t0) / 1000) % cycle;
     for (const p of packets) {
       const k = (t - p.start) / p.dur;
@@ -181,84 +218,168 @@ export function createScene(host, lesson, { still = false } = {}) {
   }
 
   // ---- step-local tags ----
-  function buildTags(step, state) {
-    let html = '';
+  function buildTags(step, state, nodes, delayOf) {
+    layer('tags').innerHTML = '';
     for (const t of step.tags || []) {
-      const node = t.on ? def.nodes[t.on] : null;
-      if (t.on && (!node || !geo[t.on] || !state.vis.has(t.on))) continue;
+      if (t.on && (!nodes[t.on] || !geo[t.on] || !state.vis.has(t.on))) continue;
       if (!t.on && !t.at) continue;
-      const [x, y] = tagCentre(t, node, geo[t.on]);
-      html += `<g class="tag">${pill(t.text, { cx: x, cy: y, fs: 14, tone: t.tone || '', icon: t.icon || '' }).svg}</g>`;
+      const [x, y] = tagCentre(t, t.on ? nodes[t.on] : null, geo[t.on]);
+      const g = mk('g', 'tag', layer('tags'));
+      g.style.setProperty('--d', `${delayOf(t).toFixed(2)}s`);
+      g.innerHTML = pill(t.text, { cx: x, cy: y, fs: 14, tone: t.tone || '', icon: t.icon || '' }).svg;
     }
-    layer('tags').innerHTML = html;
   }
 
-  // ---- camera: each step frames what it shows, and glides there ----
-  let camRaf = 0;
-  function moveCamera(to, instant) {
-    cancelAnimationFrame(camRaf);
-    if (instant) { vb = to; svg.setAttribute('viewBox', vb.map(f).join(' ')); return; }
-    const from = vb;
+  // ---- camera and node moves share one animation loop ----
+  let moveRaf = 0;
+  function animate({ camTo, moves, camInstant }) {
+    cancelAnimationFrame(moveRaf);
+    const camFrom = vb;
+    const from = {};
+    for (const id of moves) from[id] = gpos[id];
+    const touched = ids.edges.filter((id) => moves.some((m) => def.edges[id].from === m || def.edges[id].to === m));
+    if (camInstant) { vb = camTo; svg.setAttribute('viewBox', vb.map(f).join(' ')); }
+    if (!moves.length && camInstant) return;
     const start = performance.now();
     const tick = (now) => {
-      const k = Math.min(1, (now - start) / 650);
-      const e = 1 - Math.pow(1 - k, 3);
-      vb = from.map((v, i) => v + (to[i] - v) * e);
-      svg.setAttribute('viewBox', vb.map(f).join(' '));
-      if (k < 1) camRaf = requestAnimationFrame(tick);
+      const k = Math.min(1, (now - start) / 680);
+      const e = ease(k);
+      if (!camInstant) {
+        vb = camFrom.map((v, i) => v + (camTo[i] - v) * e);
+        svg.setAttribute('viewBox', vb.map(f).join(' '));
+      }
+      for (const id of moves) {
+        gpos[id] = [from[id][0] + (tpos[id][0] - from[id][0]) * e, from[id][1] + (tpos[id][1] - from[id][1]) * e];
+        placeNode(id);
+      }
+      for (const id of touched) paintEdge(id, liveEdge(id));
+      if (k < 1) moveRaf = requestAnimationFrame(tick);
     };
-    camRaf = requestAnimationFrame(tick);
+    moveRaf = requestAnimationFrame(tick);
   }
 
-  let current = -1;
-  function apply(index, { instant = false } = {}) {
-    const step = lesson.steps[index];
-    if (!step) return;
-    const state = foldSteps(lesson, index);
-    svg.classList.toggle('instant', instant || still);
+  let lastPatch = {};
+  const liveEdge = (id) => ({ ...def.edges[id], ...(lastPatch[id] || {}) });
 
-    for (const id of ids.zones) {
-      paintZone(id, { ...def.zones[id], ...(state.patch[id] || {}) });
-      el.zones[id].classList.toggle('off', !state.vis.has(id));
-    }
+  let current = -1;
+  /**
+   * Show step `index` (0-based; -1 shows an empty stage).
+   * instant: no animation at all. camera: 'instant' keeps the camera from gliding.
+   */
+  function apply(index, { instant = false, camera = '' } = {}) {
+    const step = lesson.steps[index] || {};
+    const state = foldSteps(lesson, index);
+    lastPatch = state.patch;
+    const calm = instant || still;
+    const soft = reduced();
+    svg.classList.toggle('instant', calm);
+
+    // where everything is headed
+    const nodes = {};
     for (const id of ids.nodes) {
       const n = { ...def.nodes[id], ...(state.patch[id] || {}) };
-      paintNode(id, n);
+      nodes[id] = n;
+      tpos[id] = proj(n.at[0], n.at[1]);
+    }
+    const moves = ids.nodes.filter((id) => state.vis.has(id) && shown.has(id) && (Math.abs(tpos[id][0] - gpos[id][0]) > 0.5 || Math.abs(tpos[id][1] - gpos[id][1]) > 0.5));
+    for (const id of ids.nodes) {
+      if (calm || soft || !moves.includes(id)) { gpos[id] = tpos[id]; placeNode(id); }
+      if (shown.has(id)) el.nodes[id].classList.remove('enter');
+    }
+    sortNodes();
+
+    // when each new thing arrives
+    const order = [...(step.show || []), ...ids.nodes];
+    const entering = [...new Set(order)].filter((id) => id in def.nodes && state.vis.has(id) && !shown.has(id));
+    const moving = moves.length && !calm && !soft;
+    const base = moving ? 0.45 : 0.12;
+    const nodeDelay = {};
+    entering.forEach((id, i) => { nodeDelay[id] = base + Math.min(i, 8) * 0.08; });
+    const ready = (ref) => (Array.isArray(ref) ? base : nodeDelay[ref] ?? (moving && moves.includes(ref) ? 0.5 : 0));
+    let settle = entering.length ? Math.max(...entering.map((id) => nodeDelay[id])) + 0.45 : moving ? 0.6 : 0.15;
+
+    // zones
+    for (const id of ids.zones) {
+      paintZone(id, { ...def.zones[id], ...(state.patch[id] || {}) });
+      const on = state.vis.has(id);
+      const g = el.zones[id];
+      if (on && !shown.has(id) && !calm) restart(g, 'enter'); else if (!on) g.classList.remove('enter');
+      g.classList.toggle('off', !on);
+    }
+
+    // nodes
+    for (const id of ids.nodes) {
       const g = el.nodes[id];
-      g.classList.toggle('off', !state.vis.has(id));
+      const on = state.vis.has(id);
+      paintNode(id, nodes[id], !calm && on && shown.has(id));
+      if (on && !shown.has(id) && !calm) {
+        g.style.setProperty('--d', `${nodeDelay[id].toFixed(2)}s`);
+        g.classList.remove('off');
+        restart(g, 'enter');
+      } else if (!on) g.classList.remove('enter');
+      g.classList.toggle('off', !on);
       g.classList.toggle('focus', (step.focus || []).includes(id));
     }
+
+    // edges draw in once both of their ends have arrived
     for (const id of ids.edges) {
       const e = { ...def.edges[id], ...(state.patch[id] || {}) };
       paintEdge(id, e);
-      const endsOn = [e.from, e.to].every((r) => Array.isArray(r) || state.vis.has(r));
-      el.edges[id].classList.toggle('off', !endsOn || state.edgeOff.has(id));
+      const g = el.edges[id];
+      const on = [e.from, e.to].every((r) => Array.isArray(r) || state.vis.has(r)) && !state.edgeOff.has(id);
+      if (on && !shown.has('e:' + id) && !calm) {
+        const d = Math.max(ready(e.from), ready(e.to)) + 0.3;
+        settle = Math.max(settle, d + 0.45);
+        g.style.setProperty('--d', `${d.toFixed(2)}s`);
+        g.classList.remove('off');
+        restart(g, 'enter');
+      } else if (!on) g.classList.remove('enter');
+      g.classList.toggle('off', !on);
     }
-    buildTags(step, state);
+
+    // tags pop up beside their node after it has landed
+    buildTags(step, state, nodes, (t) => {
+      const d = (t.on ? ready(t.on) : base) + 0.4;
+      settle = Math.max(settle, d);
+      return calm ? 0 : d;
+    });
+
+    // the camera frames what this step shows, using where nodes are headed
+    const live = { ...lesson, scene: { ...def, nodes } };
+    animate({ camTo: frameOf(live, state.vis, step), moves: calm || soft ? [] : moves, camInstant: calm || soft || camera === 'instant' || current < 0 });
+
     buildFlows(step);
-    moveCamera(frameOf(lesson, state.vis, step), instant || still || current < 0);
-    current = index;
     if (still) {
       for (const p of packets) { p.g.style.opacity = 1; place(p, p.frac); }
     } else {
-      t0 = performance.now();
-      if (pausedAt != null) pausedAt = t0;
+      t0 = performance.now() + (calm ? 0 : settle * 1000);
+      if (pausedAt != null) pausedAt = performance.now();
       if (!raf) raf = requestAnimationFrame(frame);
     }
-    if (instant || still) requestAnimationFrame(() => svg.classList.remove('instant'));
+
+    shown.clear();
+    for (const id of state.vis) shown.add(id);
+    for (const id of ids.edges) if (!el.edges[id].classList.contains('off')) shown.add('e:' + id);
+    current = index;
+    if (calm && !still) requestAnimationFrame(() => svg.classList.remove('instant'));
     return state;
   }
 
   return {
     apply,
-    replay() { t0 = performance.now(); if (pausedAt != null) pausedAt = t0; layer('tags').querySelectorAll('.tag').forEach((t) => { t.style.animation = 'none'; t.getBoundingClientRect(); t.style.animation = ''; }); },
+    /** Play the current step's arrival again: back to the step before, then forward. */
+    replay() {
+      const i = current;
+      apply(i - 1, { instant: true });
+      apply(i, { camera: 'instant' });
+    },
     setPaused(p) {
       if (p && pausedAt == null) pausedAt = performance.now();
       else if (!p && pausedAt != null) { t0 += performance.now() - pausedAt; pausedAt = null; }
     },
     get paused() { return pausedAt != null; },
     get step() { return current; },
-    destroy() { cancelAnimationFrame(raf); cancelAnimationFrame(camRaf); raf = 0; host.innerHTML = ''; },
+    destroy() { cancelAnimationFrame(raf); cancelAnimationFrame(moveRaf); raf = 0; host.innerHTML = ''; },
   };
 }
 

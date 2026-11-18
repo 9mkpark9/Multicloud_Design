@@ -218,8 +218,8 @@ code {
 .metric b { display: block; font-size: 13.500px; font-weight: 800; line-height: 1.3; white-space: nowrap; }
 .metric.t-bad b { color: var(--bad); } .metric.t-ok b { color: var(--ok); }
 .metric.t-ok { --tone: var(--ok); } .metric.t-bad { --tone: var(--bad); } .metric.t-warn { --tone: #d9a520; }
-.metric.flash { animation: flash 0.9s ease-out; }
-@keyframes flash { 0% { background: var(--warn-bg); transform: translateY(-2px); } 100% { background: var(--paper); } }
+.metric.flash { animation: flash 1.1s ease-out; }
+@keyframes flash { 0%, 35% { background: var(--warn-bg); transform: translateY(-2px); } 100% { background: var(--paper); } }
 .stage-btns { display: flex; gap: 7px; flex: none; margin-left: auto; }
 
 .stage-body { flex: 1; min-height: 0; display: flex; }
@@ -258,7 +258,7 @@ code {
 .panel {
   position: absolute; top: 10px; left: 10px; max-width: min(330px, 62%);
   border: 1.5px solid var(--ink); border-radius: 10px; background: var(--paper); box-shadow: var(--hard);
-  padding: 7px; animation: pop 0.35s ease-out;
+  padding: 7px;
 }
 .with-code .panel { left: auto; right: 10px; }
 .panel[hidden] { display: none; }
@@ -365,6 +365,25 @@ code {
   .keys { display: none; }
   .stage-btns span { display: none; }
 }
+/* step card: the new step's text rises in, paragraph by paragraph */
+.step.swap .step-top, .step.swap h2, .step.swap .step-body > * { animation: rise 0.42s cubic-bezier(0.2, 0.8, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+.chg { animation: rise 0.36s ease both; animation-delay: calc(240ms + var(--i, 0) * 70ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+.learn li i { transition: background 0.3s, border-color 0.3s; }
+.learn li.just i { animation: tick 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@keyframes tick { 0% { transform: scale(0.4); } 60% { transform: scale(1.25); } }
+.tl-steps li::before { transition: background 0.45s ease; }
+.tl-steps i { transition: background 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s; }
+.tl-steps .now i { animation: tick 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+.panel, .panel.again { animation: pop 0.4s 0.2s both cubic-bezier(0.2, 0.8, 0.3, 1); }
+.panel.again { animation-name: pop2; }
+@keyframes pop2 { from { opacity: 0; transform: translateY(-6px); } }
+.code-pane.swap { animation: fade-slide 0.35s ease both; }
+@keyframes fade-slide { from { opacity: 0; transform: translateX(-10px); } }
+.ln { transition: background 0.35s, box-shadow 0.35s; }
+.ln > span { transition: opacity 0.35s; }
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .step.swap .step-top, .step.swap h2, .step.swap .step-body > *, .chg, .panel, .code-pane.swap { animation-name: fade-in; }
+  .learn li.just i, .tl-steps .now i { animation: none; }
 }
