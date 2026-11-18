@@ -84,6 +84,8 @@ scene: {
 
 ## steps
 
+단계 전환은 자동으로 연출됩니다: 사라지는 것이 먼저 빠지고, 옮겨진 노드가 미끄러지고, 새 노드가 `show` 순서대로 하나씩 떨어져 내려오고, 양 끝이 도착한 화살표가 그려지고, 태그가 붙은 뒤, 패킷이 흐르기 시작합니다. 그래서 **`show` 배열의 순서가 등장 순서**입니다. 이야기 순서대로 적으세요.
+
 단계는 **누적**됩니다. `show`·`hide`·`set`·`metrics`는 이전 단계들 위에 쌓이고, `tags`·`flows`·`panel`·`code`·`focus`는 **그 단계에만** 나타납니다.
 
 ```js
@@ -102,7 +104,8 @@ scene: {
   hide: ['old'],
   set: {                               // 노드·영역·화살표의 속성 바꾸기 (누적)
     web: { state: 'hot', badge: 'CPU 97%', tone: 'bad' },   // state: 'down' | 'hot' | 'dim' | 'ok' | null
-    db:  { label: 'DB (대기)', color: 'gray' },              // label · sub · icon · color 변경 가능 (at · kind · size는 불가)
+    db:  { label: 'DB (대기)', color: 'gray' },              // label · sub · icon · color 변경 → 이전 모습에서 부드럽게 바뀜
+    lb:  { at: [3, 1] },                                      // 위치 변경 → 노드가 미끄러져 이동하고 화살표가 따라감 (kind · size는 불가)
     e2:  { style: 'dashed', tone: 'bad', label: '차단' },
     vpc: { label: '새 이름' },
   },

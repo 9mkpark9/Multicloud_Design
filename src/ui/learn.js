@@ -24,6 +24,34 @@ const CALLOUT = {
 };
 export const FLOW_KINDS = ['req', 'res', 'data', 'ctrl', 'sync', 'build', 'bad'];
 
+const restartClass = (node, cls) => { node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); };
+
+/**
+ * Count a metric from its old text to its new one when both are the same shape with a different
+ * number ("120 ms" → "45 ms", "1,200원" → "300원"); anything else is simply replaced.
+ */
+const NUM = /-?\d[\d,]*(?:\.\d+)?/;
+function countTo(b, from, to) {
+  cancelAnimationFrame(b._raf);
+  const ma = from.match(NUM);
+  const mb = to.match(NUM);
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (calm || !ma || !mb || from.replace(NUM, '#') !== to.replace(NUM, '#')) { b.textContent = to; return; }
+  const a = parseFloat(ma[0].replace(/,/g, ''));
+  const z = parseFloat(mb[0].replace(/,/g, ''));
+  const dec = (mb[0].split('.')[1] || '').length;
+  const comma = mb[0].includes(',');
+  const fmt = (v) => (comma ? Number(v.toFixed(dec)).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : v.toFixed(dec));
+  const start = performance.now();
+  const tick = (now) => {
+    const k = Math.min(1, (now - start) / 700);
+    const e = 1 - Math.pow(1 - k, 3);
+    b.textContent = k < 1 ? to.replace(NUM, fmt(a + (z - a) * e)) : to;
+    if (k < 1) b._raf = requestAnimationFrame(tick);
+  };
+  b._raf = requestAnimationFrame(tick);
+}
+
 export function mountLearn(main, lessonId, startStep, ctx) {
   const lesson = getLesson(lessonId);
   const ch = lesson.chapter;
@@ -86,18 +114,35 @@ export function mountLearn(main, lessonId, startStep, ctx) {
   $('#tl').innerHTML = lesson.steps.map((s, i) => `<li><a href="#/${lesson.id}/${i + 1}" data-i="${i + 1}"><i>${i + 1}</i><span>${esc(s.key || s.title)}</span></a></li>`).join('');
 
   let lastMetrics = {};
-  function paint(instant) {
+  let lastCode = '';
+  let lastLearned = null;
+  /**
+   * Draw step `step`. 'next' animates from the step on screen; 'build' first shows the step
+   * before it and then animates this step's arrival (first load, jumps, replay).
+   */
+  function paint(mode) {
     const st = lesson.steps[step - 1];
-    const state = scene.apply(step - 1, { instant });
+    if (mode === 'build') scene.apply(step - 2, { instant: true });
+    const state = scene.apply(step - 1);
+    const first = !$('#metrics').children.length;
 
-    // metric tiles
+    // metric tiles: numbers count from the old value to the new one
     const mdefs = lesson.metrics || [];
-    $('#metrics').innerHTML = mdefs.map((m) => {
+    if (first) {
+      $('#metrics').innerHTML = mdefs.map((m) => `<div class="metric"><span>${m.icon ? icon(m.icon, 11) : ''}${esc(m.label)}</span><b>—</b></div>`).join('');
+    }
+    mdefs.forEach((m, i) => {
+      const tile = $('#metrics').children[i];
       const raw = state.metrics[m.id];
       const [val, tone] = Array.isArray(raw) ? raw : [raw, ''];
-      const changed = !instant && lastMetrics[m.id] !== undefined && JSON.stringify(lastMetrics[m.id]) !== JSON.stringify(raw);
-      return `<div class="metric ${tone ? 't-' + tone : ''} ${changed ? 'flash' : ''}"><span>${m.icon ? icon(m.icon, 11) : ''}${esc(m.label)}</span><b>${val == null ? '—' : esc(val)}</b></div>`;
-    }).join('');
+      const text = val == null ? '—' : String(val);
+      tile.className = `metric ${tone ? 't-' + tone : ''}`;
+      const b = tile.querySelector('b');
+      if (b.textContent !== text) {
+        if (!first) restartClass(tile, 'flash');
+        countTo(b, b.textContent, text);
+      }
+    });
     lastMetrics = { ...state.metrics };
     $('.stage-top').classList.toggle('no-metrics', !mdefs.length);
 
@@ -107,11 +152,27 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     cp.hidden = !code;
     $('.stage-body').classList.toggle('with-code', Boolean(code));
     if (code) {
-      cp.innerHTML = codePane(code);
-      cp.querySelector('.ln.hl')?.scrollIntoView({ block: 'nearest' });
-    }
+      const key = `${code.title}\n${code.text}`;
+      if (key === lastCode) {
+        // same file: only the highlight moves, so it slides instead of the pane being redrawn
+        const hl = new Set(code.hl || []);
+        cp.querySelector('.code-body').classList.toggle('has-hl', hl.size > 0);
+        cp.querySelectorAll('.ln').forEach((ln, i) => ln.classList.toggle('hl', hl.has(i + 1)));
+      } else {
+        cp.innerHTML = codePane(code);
+        restartClass(cp, 'swap');
+      }
+      lastCode = key;
+      const target = cp.querySelector('.ln.hl');
+      if (target) {
+        const body = cp.querySelector('.code-body');
+        body.scrollTo({ top: Math.max(0, target.offsetTop - body.clientHeight / 3), behavior: first ? 'auto' : 'smooth' });
+      }
+    } else lastCode = '';
     const pn = $('#panel');
+    const panelWas = !pn.hidden;
     pn.hidden = !st.panel;
+    if (st.panel && panelWas) restartClass(pn, 'again');
     if (st.panel) {
       pn.innerHTML = `<div class="panel-head">${st.panel.icon ? icon(st.panel.icon, 13) : ''}<b>${esc(st.panel.title || '')}</b></div>` +
         st.panel.rows.map((r) => {
@@ -140,8 +201,16 @@ export function mountLearn(main, lessonId, startStep, ctx) {
 </div>
 <div class="keys"><kbd>←</kbd><kbd>→</kbd> 단계 · <kbd>R</kbd> 다시 보기 · <kbd>Space</kbd> 일시정지${lesson.quiz?.length && !nextStep ? ` · <a href="#/practice/lesson/${lesson.id}">퀴즈 풀기</a>` : ''}</div>`;
 
+    // the step card's text rises in piece by piece
+    const card = $('#stepcard');
+    [card.querySelector('.step-top'), card.querySelector('h2'), ...card.querySelectorAll('.step-body > *')].forEach((n, i) => n?.style.setProperty('--i', i));
+    card.querySelectorAll('.chg').forEach((n, i) => n.style.setProperty('--i', i));
+    restartClass(card, 'swap');
+
     // checklist and timeline
-    $('#learn').innerHTML = learned(lesson, step - 1).map((l) => `<li class="${l.done ? 'on' : ''}"><i>${l.done ? icon('check', 11) : ''}</i><span>${esc(l.text)}</span></li>`).join('');
+    const items = learned(lesson, step - 1);
+    $('#learn').innerHTML = items.map((l, i) => `<li class="${l.done ? 'on' : ''} ${l.done && lastLearned && !lastLearned[i] ? 'just' : ''}"><i>${l.done ? icon('check', 11) : ''}</i><span>${esc(l.text)}</span></li>`).join('');
+    lastLearned = items.map((l) => l.done);
     $('#tl-count').textContent = `${total}단계 중 ${step}단계`;
     main.querySelectorAll('#tl a').forEach((a) => {
       const i = +a.dataset.i;
@@ -157,7 +226,7 @@ export function mountLearn(main, lessonId, startStep, ctx) {
     $('#pause').innerHTML = scene.paused ? `${icon('play', 13)}<span>재생</span>` : `${icon('pause', 13)}<span>일시정지</span>`;
   }
 
-  $('#replay').addEventListener('click', () => scene.replay());
+  $('#replay').addEventListener('click', () => paint('build'));
   $('#pause').addEventListener('click', () => { scene.setPaused(!scene.paused); paintPause(); });
 
   const onKey = (e) => {
@@ -168,20 +237,20 @@ export function mountLearn(main, lessonId, startStep, ctx) {
       else if (nextId) ctx.go(`#/${nextId}/1`);
     } else if (e.key === 'ArrowLeft') {
       if (step > 1) ctx.go(`#/${lesson.id}/${step - 1}`);
-    } else if (e.key.toLowerCase() === 'r') scene.replay();
+    } else if (e.key.toLowerCase() === 'r') paint('build');
     else if (e.key === ' ') { e.preventDefault(); scene.setPaused(!scene.paused); paintPause(); }
   };
   window.addEventListener('keydown', onKey);
 
-  paint(true);
+  paint('build');
 
   return {
     lesson: lessonId,
     update(n) {
       const next = Math.min(Math.max(1, n), total);
-      const jump = Math.abs(next - step) > 1;
+      const mode = next === step + 1 || next === step - 1 ? 'next' : 'build';
       step = next;
-      paint(jump);
+      paint(mode);
       if (matchMedia('(max-width: 859px)').matches) main.querySelector('.stage')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     },
     destroy() {

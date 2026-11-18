@@ -152,7 +152,8 @@ function checkLesson(L, E, W) {
         if (p.color && !COLORS.has(p.color)) E.push(`${at}: set ${id}.color "${p.color}" unknown`);
         if (p.tone && !TONES.has(p.tone)) E.push(`${at}: set ${id}.tone "${p.tone}" unknown`);
         if (p.badge && tw(p.badge) > 9) W.push(`${at}: set ${id}.badge "${p.badge}" is long`);
-        if ('at' in p || 'kind' in p || 'size' in p) E.push(`${at}: set ${id}: at / kind / size cannot change between steps`);
+        if ('kind' in p || 'size' in p) E.push(`${at}: set ${id}: kind / size cannot change between steps (at can: the node slides there)`);
+        if ('at' in p && (!Array.isArray(p.at) || p.at.length !== 2)) E.push(`${at}: set ${id}.at must be [x, y]`);
         checkLabel(`${at}: set ${id}`, { ...nodes[id], ...patch[id] }, nodes[id].kind || 'box', nodes[id].size || 'm', E, W);
       }
     }
@@ -235,7 +236,8 @@ function checkLesson(L, E, W) {
     });
     // the stage is about 800 × 560: a bigger frame is scaled down, and its labels with it
     if (Object.values(nodes).every((n) => Array.isArray(n.at)) && Object.values(zones).every((z) => Array.isArray(z.at) && Array.isArray(z.size))) {
-      const [, , fw, fh] = frameOf(L, vis, st);
+      const live = { ...L, scene: { ...sc, nodes: Object.fromEntries(Object.entries(nodes).map(([k, n]) => [k, { ...n, ...(patch[k] || {}) }])) } };
+      const [, , fw, fh] = frameOf(live, vis, st);
       const limW = st.code ? 640 : 970, limH = 680;
       if (fw > limW) W.push(`${at}: this step's frame is ${Math.round(fw)} px wide (limit ${limW}${st.code ? ' with a code pane' : ''}); hide what the step does not need or pull things closer`);
       if (fh > limH) W.push(`${at}: this step's frame is ${Math.round(fh)} px tall (limit ${limH}); hide what the step does not need or pull things closer`);
