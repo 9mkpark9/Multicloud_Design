@@ -268,7 +268,7 @@ $ cat ~/.docker/config.json
           '<b>재현성</b>: 같은 README를 따라 쳐도 옵션 하나, 이미지 태그 하나가 달라지면 다른 환경이 됩니다.',
           '<b>리뷰 불가</b>: 셸 기록에만 남은 설정은 코드 리뷰도, 변경 이력도 없습니다.',
           '<b>비밀 노출</b>: <code>-e POSTGRES_PASSWORD=secret</code>는 셸 기록(<code>~/.bash_history</code>)과 <code>docker inspect</code> 출력에 그대로 남습니다.',
-          '<b>정리</b>: 지울 때도 무엇을 만들었는지 기억해 하나씩 지워야 합니다.',
+          '<b>정리</b>: 지울 때도 무엇을 만들었는지 기억해 하나씩 지워야 합니다.', '<b>온보딩</b>: 새 팀원이 첫날 개발 환경을 띄우는 데 반나절이 걸린다면, 이 문제의 비용이 눈에 보이는 순간입니다.',
         ] },
         { title: '직접 해보기', body: ['지금 떠 있는 컨테이너가 어떤 옵션으로 떴는지는 나중에 <code>docker inspect</code>로만 거꾸로 알아낼 수 있습니다. 이 출력을 사람이 다시 명령으로 옮기다 보면 실수가 생기기 쉬워요.'],
           code: { title: 'terminal', lang: 'sh', text: '$ docker inspect web -f \\\n  \'{{.HostConfig.NetworkMode}} {{.Config.Env}}\'\nshopnet [DB_HOST=db REDIS_HOST=cache …]' } },
@@ -342,7 +342,7 @@ $ cat ~/.docker/config.json
         ] },
         { title: '출력 읽기', body: [
           '<code>shop-db-1</code>의 마지막 <code>1</code>은 서비스의 복제 번호입니다. <code>docker compose up -d --scale web=3</code>처럼 늘리면 <code>-2</code>, <code>-3</code>이 생겨요. 단 <code>ports: "8080:3000"</code>처럼 호스트 포트를 고정한 서비스는 하나만 그 포트를 쓸 수 있어 늘리지 못합니다.',
-          '같은 폴더 이름의 프로젝트가 두 개면 이름이 겹쳐 서로의 컨테이너를 덮어쓸 수 있습니다. <code>name: shop</code>을 파일 맨 위에 두거나 <code>-p</code>로 프로젝트 이름을 고정하세요.',
+          '같은 폴더 이름의 프로젝트가 두 개면 이름이 겹쳐 서로의 컨테이너를 덮어쓸 수 있습니다. <code>name: shop</code>을 파일 맨 위에 두거나 <code>-p</code>로 프로젝트 이름을 고정하세요.', '<code>up</code>을 다시 치면 Compose는 각 서비스의 설정을 지금 컨테이너와 비교해 달라진 서비스만 다시 만들고, 나머지는 그대로 둡니다. 이미지 태그만 바꿔도 그 서비스만 교체돼요.',
         ] },
       ],
     },
@@ -367,12 +367,13 @@ $ cat ~/.docker/config.json
       more: [
         { title: '증상에서 원인까지', code: { title: 'terminal', lang: 'sh', text: '$ docker compose ps -a\nNAME          STATUS\nshop-db-1     Up 3 seconds\nshop-web-1    Exited (1) 2 seconds ago\n\n$ docker compose logs db | tail -3\ndb-1  | initdb: … creating subdirectories\ndb-1  | … database system is ready to accept connections\n\n$ docker compose logs web | tail -1\nweb-1 | Error: connect ECONNREFUSED 172.19.0.2:5432' } },
         { title: '출력 읽기', body: [
-          'db 로그를 보면 <code>initdb</code>로 데이터 디렉터리를 만드는 동안 web이 먼저 접속을 시도했습니다. 이름(db → 172.19.0.2)은 잘 풀렸으니 네트워크 문제가 아니라 <b>타이밍</b> 문제예요. 볼륨이 빈 새 환경에서 처음 띄울 때 가장 잘 드러납니다.',
+          'db 로그를 보면 <code>initdb</code>로 데이터 디렉터리를 만드는 동안 web이 먼저 접속을 시도했습니다. 이름(db → 172.19.0.2)은 잘 풀렸으니 네트워크 문제가 아니라 <b>타이밍</b> 문제예요. 볼륨이 빈 새 환경에서 처음 띄울 때 가장 잘 드러납니다. 반대로 이름이 안 풀렸다면(ENOTFOUND) 타이밍이 아니라 네트워크를 의심합니다(이전 레슨).',
         ] },
         { title: '흔한 실수', list: [
           '<code>command: sh -c "sleep 10 && node server.js"</code>처럼 기다리게 하는 것. 느린 PC나 CI에서는 10초도 모자라고, 빠른 곳에서는 시간 낭비입니다.',
           '<code>restart: always</code>만으로 버티기. 몇 번 죽었다 살아나며 결국 붙기는 하지만, 로그가 오류로 가득 차 진짜 문제를 가립니다.',
         ] },
+        { title: '실무 팁', list: ['앱에 DB 연결 재시도(점점 간격을 늘리는 백오프)를 넣어 두면 기동 순서뿐 아니라 운영 중 DB 재시작에도 버팁니다. healthcheck(다음 단계)와 함께 쓰는 것이 정석입니다.', 'CI처럼 매번 빈 볼륨으로 시작하는 환경에서 한 번 돌려 보면 이런 순서 문제를 미리 잡을 수 있습니다.'] },
       ],
     },
     {
@@ -405,7 +406,7 @@ $ cat ~/.docker/config.json
           '<code>interval</code>(검사 간격) × <code>retries</code>(연속 실패 허용)가 "unhealthy로 판정되기까지의 시간"입니다. 위 예시는 약 25초.',
           '<code>start_period</code>를 주면 기동 초반의 실패는 세지 않습니다. 첫 기동이 오래 걸리는 앱(마이그레이션, JVM)에 씁니다.',
           '검사 명령은 <b>이미지 안에 있는 도구</b>여야 합니다. 작은 이미지에는 <code>curl</code>이 없을 수 있어요.',
-          '<code>condition: service_completed_successfully</code>는 마이그레이션처럼 "한 번 돌고 성공해야 하는" 작업을 기다릴 때 씁니다.',
+          '<code>condition: service_completed_successfully</code>는 마이그레이션처럼 "한 번 돌고 성공해야 하는" 작업을 기다릴 때 씁니다.', '<code>docker inspect shop-db-1 --format \'{{json .State.Health}}\'</code>로 최근 검사 결과와 출력을 볼 수 있습니다. 검사 명령은 가볍게 두세요. 몇 초마다 무거운 쿼리를 돌리면 검사 자체가 부하가 됩니다.',
         ] },
         { title: '더 생각해 볼 것', body: ['<code>--wait</code>는 서비스가 running · healthy가 될 때까지 기다렸다 끝나므로, CI에서 통합 테스트 전에 쓰기 좋습니다. 쿠버네티스에서는 같은 생각이 readiness · liveness 프로브로 이어집니다(7장).'] },
       ],
@@ -428,10 +429,10 @@ $ cat ~/.docker/config.json
         { title: '두 가지 .env를 구분하기', list: [
           '<b>프로젝트 폴더의 <code>.env</code></b>: compose.yaml 안의 <code>${…}</code>를 <b>채우는</b> 데 쓰입니다. 컨테이너에 자동으로 들어가지 않아요.',
           '<b><code>env_file: ./web.env</code></b>: 파일의 모든 줄을 그 <b>컨테이너의 환경 변수</b>로 넣습니다.',
-          '같은 변수가 셸 환경에도 있으면 셸의 값이 <code>.env</code>보다 우선합니다. <code>--env-file</code>로 다른 파일을 지정할 수도 있어요.',
+          '같은 변수가 셸 환경에도 있으면 셸의 값이 <code>.env</code>보다 우선합니다. <code>--env-file</code>로 다른 파일을 지정할 수도 있어요.', '<code>.env</code>의 따옴표 처리 규칙은 셸과 조금 다릅니다. 특수 문자가 든 비밀번호가 이상하게 들어가면 따옴표부터 확인하세요.',
         ] },
         { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker compose config | grep -A2 ports\n    ports:\n      - published: "8080"\n        target: 3000\n\n$ mv .env .env.bak && docker compose up -d\nerror while interpolating services.db.environment\n  .POSTGRES_PASSWORD: required variable\n  DB_PASSWORD is missing a value: 필요' } },
-        { title: '개발 · 운영 나누기', body: ['<code>compose.override.yaml</code>이 같은 폴더에 있으면 Compose가 자동으로 겹쳐 읽습니다. 개발용 bind mount나 디버그 포트는 override에, 운영용 차이는 <code>-f compose.yaml -f compose.prod.yaml</code>처럼 명시적으로 겹칩니다. 비밀번호 자체는 운영에서 시크릿 관리 서비스로 옮기는 것이 좋습니다(10장).'] },
+        { title: '개발 · 운영 나누기', body: ['<code>compose.override.yaml</code>이 같은 폴더에 있으면 Compose가 자동으로 겹쳐 읽습니다. 개발용 bind mount나 디버그 포트는 override에, 운영용 차이는 <code>-f compose.yaml -f compose.prod.yaml</code>처럼 명시적으로 겹칩니다. 비밀번호 자체는 운영에서 시크릿 관리 서비스로 옮기는 것이 좋습니다(10장). 값이 여러 곳에서 오면 우선순위가 헷갈리니, 최종 값은 늘 <code>docker compose config</code>로 확인하세요.'] },
       ],
     },
     {
@@ -451,10 +452,11 @@ $ cat ~/.docker/config.json
         { title: '어디에 쓰나', list: [
           '<b>디버그 도구</b>: adminer, pgAdmin, 메일 확인용 가짜 SMTP 서버.',
           '<b>테스트</b>: 통합 테스트를 돌리는 일회성 서비스(<code>profiles: ["test"]</code>).',
-          '<b>무거운 선택 구성</b>: 모니터링 스택처럼 가끔만 필요한 것.',
+          '<b>무거운 선택 구성</b>: 모니터링 스택처럼 가끔만 필요한 것.', '<b>시드 데이터</b>: 개발 DB에 샘플 데이터를 넣는 일회성 작업.',
         ] },
         { title: '직접 해보기', code: { title: 'terminal', lang: 'sh', text: '$ docker compose up -d\n$ docker compose ps --format \'{{.Service}}\'\ncache\ndb\nweb\n\n$ COMPOSE_PROFILES=debug docker compose up -d\n$ docker compose ps --format \'{{.Service}}\'\nadminer\ncache\ndb\nweb' } },
         { title: '흔한 실수', body: ['프로필이 붙은 서비스를 프로필 없는 서비스가 <code>depends_on</code>으로 기다리게 하면 기본 <code>up</code>이 꼬입니다. 의존 방향은 "선택 서비스 → 기본 서비스"로 두세요. 또 <code>down</code>도 같은 프로필을 켜고 해야 그 서비스까지 정리됩니다.'] },
+        { title: '실무 팁', list: ['<code>COMPOSE_PROFILES=debug</code>를 그 PC의 <code>.env</code>에 적어 두면 항상 그 프로필이 켜집니다. 개인 개발 환경 설정에 편합니다.', '프로필 대신 파일을 나누는 방법도 있지만, 서비스 정의가 한 파일에 모여 있는 편이 리뷰와 관리가 쉽습니다.', '여러 프로필을 함께 켤 수 있습니다: <code>--profile debug --profile test</code>.', '<code>docker compose config --profiles</code>로 파일에 정의된 프로필 목록을 볼 수 있습니다.'] },
       ],
     },
     {
@@ -518,7 +520,7 @@ $ cat ~/.docker/config.json
         { title: '실무 팁', list: [
           '짧은 SHA(7자)는 저장소가 커지면 겹칠 수 있어, CI에서는 더 긴 SHA나 빌드 번호를 함께 쓰기도 합니다.',
           '작업 트리에 커밋하지 않은 변경이 있는 상태로 빌드하면 SHA가 이미지 내용을 대표하지 못합니다. 이미지는 CI가 깨끗한 체크아웃에서 빌드하게 합니다(9장).',
-          '태그가 쌓이면 저장 비용이 늘어납니다. 레지스트리의 수명 주기(정리) 정책으로 오래되고 배포되지 않은 태그를 지웁니다.',
+          '태그가 쌓이면 저장 비용이 늘어납니다. 레지스트리의 수명 주기(정리) 정책으로 오래되고 배포되지 않은 태그를 지웁니다.', '이미지에 커밋 SHA를 라벨로도 남기면(<code>LABEL org.opencontainers.image.revision=…</code>) 태그와 별개로 메타데이터로 추적할 수 있습니다. SemVer는 사람이, SHA는 기계가 쓰는 이름으로 역할을 나눕니다.',
         ] },
       ],
     },
@@ -542,9 +544,9 @@ $ cat ~/.docker/config.json
         { title: '언제 digest까지 쓰나', list: [
           '<b>운영 배포</b>: 태그 불변 설정이 없거나, 여러 팀이 같은 레지스트리를 쓸 때.',
           '<b>베이스 이미지</b>: <code>FROM node:20-slim@sha256:…</code>로 빌드 재현성을 높일 때(이미지 레이어 레슨).',
-          '<b>감사</b>: "어제 14시에 무엇이 돌았나"를 정확히 남겨야 할 때. 배포 기록에 digest를 함께 저장합니다.',
+          '<b>감사</b>: "어제 14시에 무엇이 돌았나"를 정확히 남겨야 할 때. 배포 기록에 digest를 함께 저장합니다.', '<b>공급망 보안</b>: 이미지 서명 · 검증 도구도 태그가 아니라 digest에 서명을 붙입니다(9장).', '<b>환경 승격</b>: 개발 → 스테이징 → 운영으로 같은 digest를 그대로 옮기면, 앞 단계에서 테스트한 것이 정확히 운영에 갑니다.',
         ] },
-        { title: '흔한 실수', body: ['digest는 사람이 읽기 어렵고 수정하다 한 글자만 틀려도 pull이 실패합니다. 손으로 적지 말고 CI가 push 결과에서 꺼내 배포 설정에 넣게 합니다. 여러 CPU용 이미지라면 인덱스의 digest를 적어야 각 서버가 자기 아키텍처 이미지를 고릅니다.'] },
+        { title: '흔한 실수', body: ['digest는 사람이 읽기 어렵고 수정하다 한 글자만 틀려도 pull이 실패합니다. 손으로 적지 말고 CI가 push 결과에서 꺼내 배포 설정에 넣게 합니다. 여러 CPU용 이미지라면 인덱스의 digest를 적어야 각 서버가 자기 아키텍처 이미지를 고릅니다. 또 digest로 고정하면 베이스 보안 패치가 자동으로 들어오지 않으니, 갱신 PR을 만들어 주는 도구와 함께 씁니다.'] },
       ],
     },
     {
@@ -575,7 +577,7 @@ $ cat ~/.docker/config.json
         { title: '해결책 고르기', list: [
           '<b>당장</b>: 서버에서 Docker Hub 계정으로 로그인하면 한도가 늘어납니다. 개인 계정 대신 조직용 읽기 전용 토큰을 씁니다.',
           '<b>근본</b>: 공개 이미지를 우리 레지스트리로 미러링하고, compose.yaml의 <code>image:</code>를 우리 주소로 바꿉니다. 같은 리전에서 받으니 빨라지기도 해요.',
-          '<b>덤</b>: 우리 레지스트리에 들어온 공개 이미지도 스캔 대상이 됩니다.',
+          '<b>덤</b>: 우리 레지스트리에 들어온 공개 이미지도 스캔 대상이 됩니다.', '<b>CI도 같은 문제</b>: 공유 러너는 많은 사용자가 같은 IP로 나가 한도에 더 쉽게 걸립니다. CI의 베이스 이미지도 우리 레지스트리에서 받게 합니다.',
         ] },
         { title: '더 생각해 볼 것', body: ['한도 수치와 조건은 Docker Hub 정책에 따라 바뀌어 왔습니다. 숫자를 외우기보다 "외부 공개 레지스트리는 언제든 느려지거나 막힐 수 있는 의존성"으로 보고 설계하는 편이 안전합니다.'] },
       ],
@@ -599,13 +601,13 @@ $ cat ~/.docker/config.json
       changes: [['-', '서버에 남은 개인 계정 로그인'], ['+', 'pull 전용 · 단기 토큰']],
       more: [
         { title: '출력 읽기', body: [
-          '<code>auth</code> 값은 <code>사용자:비밀번호</code>를 base64로 바꾼 것뿐입니다. <code>echo ZGVwbG95… | base64 -d</code> 한 줄이면 원래 값이 나와요. 그래서 이 파일은 비밀번호 파일과 같게 다뤄야 합니다.',
+          '<code>auth</code> 값은 <code>사용자:비밀번호</code>를 base64로 바꾼 것뿐입니다. <code>echo ZGVwbG95… | base64 -d</code> 한 줄이면 원래 값이 나와요. 그래서 이 파일은 비밀번호 파일과 같게 다뤄야 합니다. 홈 디렉터리 백업이나 서버 이미지(AMI 등)를 만들면 이 파일도 함께 복사된다는 점을 기억하세요.',
         ] },
-        { title: 'credential helper', body: ['자격 증명을 파일 대신 OS 키체인이나 클라우드 인증으로 처리하는 도우미입니다. 클라우드용 helper는 그때그때 IAM으로 짧은 토큰을 받아 오므로 파일에 비밀이 남지 않습니다.'],
+        { title: 'credential helper', body: ['자격 증명을 파일 대신 OS 키체인이나 클라우드 인증으로 처리하는 도우미입니다. 클라우드용 helper는 그때그때 IAM으로 짧은 토큰을 받아 오므로 파일에 비밀이 남지 않습니다. Azure는 <code>az acr login</code>이 Entra ID로 짧은 토큰을 받아 Docker에 넘겨 줍니다.'],
           code: { title: '~/.docker/config.json', lang: 'json', text: '{\n  "credHelpers": {\n    "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com":\n      "ecr-login",\n    "asia-northeast3-docker.pkg.dev": "gcloud"\n  }\n}' } },
         { title: '흔한 실수', list: [
           '<code>docker login -p 비밀번호</code>: 셸 기록과 프로세스 목록에 남습니다. 항상 <code>--password-stdin</code>을 씁니다.',
-          'CI와 서버가 같은 계정을 쓰는 것: CI는 push, 서버는 pull만 필요합니다. 권한을 나눠야 유출 시 피해가 작습니다.',
+          'CI와 서버가 같은 계정을 쓰는 것: CI는 push, 서버는 pull만 필요합니다. 권한을 나눠야 유출 시 피해가 작습니다.', '유출이 의심되면 그 계정의 토큰부터 폐기하고, 레지스트리 감사 로그로 그사이 push · 삭제가 있었는지 확인합니다.',
         ] },
       ],
     },
@@ -644,7 +646,7 @@ $ cat ~/.docker/config.json
         ] },
         { title: '고를 때 볼 것', list: [
           '태그 불변 설정, 수명 주기(오래된 이미지 정리) 정책, 이미지 스캔, 다른 리전 복제를 지원하는지와 그 과금을 확인합니다.',
-          '여러 클라우드에서 같은 이미지를 쓴다면 한 곳에서 빌드해 각 클라우드 레지스트리로 <b>복제</b>하고, 각 클러스터는 자기 클라우드의 레지스트리에서 받는 구조가 흔합니다(11장).',
+          '여러 클라우드에서 같은 이미지를 쓴다면 한 곳에서 빌드해 각 클라우드 레지스트리로 <b>복제</b>하고, 각 클러스터는 자기 클라우드의 레지스트리에서 받는 구조가 흔합니다(11장).', '레지스트리 주소는 이미지 이름의 일부라, 나중에 레지스트리를 옮기면 모든 배포 설정을 바꿔야 합니다. 처음부터 주소를 변수로 두면 이전이 쉽습니다.', 'ACR은 요금 등급(SKU)에 따라 쓸 수 있는 기능이 다르고, Artifact Registry는 컨테이너뿐 아니라 npm · Maven 같은 패키지 저장소도 함께 둘 수 있습니다.', '같은 클라우드의 레지스트리는 IAM 정책으로 "어느 노드 · 파이프라인이 어느 저장소에 push · pull할 수 있나"를 세밀하게 나눌 수 있습니다.',
         ] },
       ],
     },
