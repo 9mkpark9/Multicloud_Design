@@ -140,9 +140,9 @@ CMD ["node", "dist/server.js"]
         { title: 'FROM과 WORKDIR의 요령', list: [
           '<code>FROM node</code>처럼 태그를 생략하면 <code>latest</code>입니다. 메이저 버전(<code>node:20</code>)이나 더 구체적인 버전(<code>node:20.11-slim</code>)을 적어 언제 빌드해도 비슷한 결과가 나오게 합니다.',
           '<code>WORKDIR</code>는 폴더가 없으면 만들어 줍니다. <code>RUN cd /app</code>은 그 줄에서만 효과가 있으니 쓰지 마세요.',
-          '파일 첫 줄의 <code># syntax=docker/dockerfile:1</code>은 최신 Dockerfile 문법(캐시 · 비밀 마운트 등)을 쓰겠다는 선언입니다.',
+          '파일 첫 줄의 <code># syntax=docker/dockerfile:1</code>은 최신 Dockerfile 문법(캐시 · 비밀 마운트 등)을 쓰겠다는 선언입니다.', '<code>docker build -f docker/Dockerfile .</code>처럼 Dockerfile 위치와 빌드 컨텍스트(<code>.</code>)는 따로 정할 수 있습니다. 컨텍스트는 COPY가 볼 수 있는 범위예요.',
         ] },
-        { title: '이 레슨의 목표', body: ['끝까지 고치면 이미지는 약 250 MB, 코드 수정 뒤 재빌드는 20초 안팎, 실행 사용자는 일반 사용자가 됩니다. 각 단계에서 숫자 타일이 어떻게 변하는지 함께 보세요. 숫자 자체는 프로젝트와 버전마다 다르니 직접 재는 것이 중요합니다.'] },
+        { title: '이 레슨의 목표', body: ['끝까지 고치면 이미지는 약 250 MB, 코드 수정 뒤 재빌드는 20초 안팎, 실행 사용자는 일반 사용자가 됩니다. 각 단계에서 숫자 타일이 어떻게 변하는지 함께 보세요. 숫자 자체는 프로젝트와 버전마다 다르니 직접 재는 것이 중요합니다. 베이스 이미지는 출처가 분명한 공식 이미지나 회사가 관리하는 이미지에서 고르세요. 이름이 비슷한 낯선 이미지는 악성일 수 있습니다.'] },
       ],
     },
     {
@@ -176,7 +176,7 @@ CMD ["node", "dist/server.js"]
         ] },
         { title: '흔한 실수', list: [
           '<code>ADD</code>는 로컬 tar 파일을 <b>자동으로 풀어</b> 버립니다. 의도한 게 아니라면 <code>COPY</code>를 쓰세요.',
-          '<code>ARG</code>로 넘긴 값도 history에 기록될 수 있습니다. 토큰을 넘기면 안 됩니다.',
+          '<code>ARG</code>로 넘긴 값도 history에 기록될 수 있습니다. 토큰을 넘기면 안 됩니다.', '<code>EXPOSE</code>를 지워도 앱은 똑같이 동작합니다. 문서 역할이니 남겨 두되, 실제 포트는 실행할 때(<code>-p</code>) 엽니다(다음 레슨).',
         ] },
       ],
     },
@@ -200,7 +200,7 @@ CMD ["node", "dist/server.js"]
       more: [
         { title: '캐시 판단 다시 보기', list: [
           '<code>COPY</code>는 복사할 파일들의 <b>내용</b>을 봅니다. 폴더 안 아무 파일(README, 테스트, 로그)이나 바뀌어도 <code>COPY . .</code>의 캐시는 깨집니다.',
-          '<code>RUN</code>은 <b>명령 문자열</b>만 봅니다. 같은 문자열이면 인터넷의 패키지가 새로 나와도 캐시를 씁니다.',
+          '<code>RUN</code>은 <b>명령 문자열</b>만 봅니다. 같은 문자열이면 인터넷의 패키지가 새로 나와도 캐시를 씁니다.', '캐시는 빌드를 돌린 <b>그 머신</b>에 쌓입니다. 동료 PC나 새 CI 러너에서는 처음부터 다시 빌드할 수 있어요.',
         ] },
         { title: '흔한 실수', body: [
           '<code>RUN apt-get update</code>와 <code>RUN apt-get install -y curl</code>을 두 줄로 나누면, update 줄은 캐시에 갇혀 몇 달 전 목록을 쓰고 install은 존재하지 않는 버전을 찾다가 실패할 수 있습니다. 항상 한 줄로 묶습니다.',
@@ -235,6 +235,7 @@ CMD ["node", "dist/server.js"]
           '<code>npm ci</code>는 lock 파일과 <code>package.json</code>이 맞지 않으면 <b>실패</b>합니다. 이미지에는 이 엄격함이 장점입니다.',
           'lock 파일이 Git에 없다면 이 요령 전체가 흔들립니다. lock 파일은 반드시 커밋합니다.',
         ] },
+        { title: '흔한 실수', list: ['<code>package.json</code>만 복사하고 lock 파일을 빼먹으면 <code>npm ci</code>가 실패합니다. 두 파일을 함께 복사하세요.', '여러 패키지가 든 저장소(monorepo)에서는 각 패키지의 의존성 파일을 모두 먼저 복사해야 해서 줄이 길어집니다. 이때는 캐시 마운트(다음 다음 단계)를 함께 씁니다.', '의존성 설치 뒤 <code>COPY . .</code>가 로컬 <code>node_modules</code>로 덮어쓰지 않게 <code>.dockerignore</code>가 꼭 필요합니다(다음 단계).'] },
       ],
     },
     {
@@ -261,7 +262,7 @@ CMD ["node", "dist/server.js"]
         { title: '출력 읽기', code: { title: 'terminal', lang: 'sh', text: '# 전\n => [internal] load build context   41.3s\n => => transferring context: 412.7MB\n# 후\n => [internal] load build context    0.1s\n => => transferring context: 2.1MB' } },
         { title: '설정 요령', list: [
           '<code>!</code>로 예외를 둘 수 있습니다. <code>*.md</code> 다음 줄에 <code>!README.md</code>를 쓰면 README만 남아요.',
-          '반대로 "필요한 것만 허용"하려면 <code>*</code>로 전부 막고 <code>!src</code>, <code>!package*.json</code>처럼 열어 주는 방식도 있습니다.',
+          '반대로 "필요한 것만 허용"하려면 <code>*</code>로 전부 막고 <code>!src</code>, <code>!package*.json</code>처럼 열어 주는 방식도 있습니다.', '빌드 출력의 <code>transferring context</code> 크기를 보면 컨텍스트가 큰지 바로 압니다. 수백 MB라면 대개 <code>node_modules</code>나 <code>.git</code>이 들어간 것입니다.',
           '이미 이미지에 들어간 비밀은 <code>.dockerignore</code>로 되돌릴 수 없습니다. 그 비밀은 폐기하고 새로 발급합니다(이미지 레이어 레슨).',
         ] },
       ],
@@ -315,7 +316,7 @@ CMD ["node", "dist/server.js"]
           '<b>공격 표면</b>: 침입자에게 컴파일러, 패키지 관리자, 셸 도구는 그대로 쓸 수 있는 연장입니다.',
           '<b>스캔 소음</b>: 실행에 쓰지도 않는 패키지의 취약점이 보고서를 채워, 정말 고쳐야 할 것이 묻힙니다.',
         ] },
-        { title: '더 생각해 볼 것', body: ['"빌드한 뒤 RUN에서 도구를 지우면 되지 않을까?"라고 생각할 수 있습니다. 하지만 이전 레슨에서 봤듯 지운 파일은 아래 레이어에 남아 크기가 줄지 않습니다. 그래서 아예 <b>새 탑을 쌓는</b> 방법이 필요합니다.'] },
+        { title: '더 생각해 볼 것', body: ['"빌드한 뒤 RUN에서 도구를 지우면 되지 않을까?"라고 생각할 수 있습니다. 하지만 이전 레슨에서 봤듯 지운 파일은 아래 레이어에 남아 크기가 줄지 않습니다. 그래서 아예 <b>새 탑을 쌓는</b> 방법이 필요합니다. 빌드 단계와 실행 단계를 나누면 단계마다 베이스도 따로 고를 수 있습니다.'] },
       ],
     },
     {
